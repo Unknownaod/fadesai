@@ -123,12 +123,6 @@ useState(false);
 
 const [toast, setToast] = useState(null);
 
-# /*
-
-# AUTH STATE
-
-*/
-
 const [user, setUser] = useState(null);
 const [authLoading, setAuthLoading] = useState(true);
 
@@ -144,31 +138,13 @@ const [authPassword, setAuthPassword] = useState("");
 const [authDisplayName, setAuthDisplayName] =
 useState("");
 
-# /*
-
-# CHAT EDITING
-
-*/
-
 const [editingChatId, setEditingChatId] =
 useState(null);
 const [editingTitle, setEditingTitle] =
 useState("");
 
-# /*
-
-# SETTINGS
-
-*/
-
 const [settings, setSettings] =
 useState(DEFAULT_SETTINGS);
-
-# /*
-
-# REFS
-
-*/
 
 const textareaRef = useRef(null);
 const messagesEndRef = useRef(null);
@@ -177,12 +153,6 @@ const fileInputRef = useRef(null);
 const abortControllerRef = useRef(null);
 const searchInputRef = useRef(null);
 const toastTimerRef = useRef(null);
-
-# /*
-
-# SUGGESTIONS
-
-*/
 
 const suggestions = [
 {
@@ -291,11 +261,6 @@ checkSession();
 
 }, []);
 
-# /*
-
-# SAVE CHATS
-
-*/
 
 useEffect(() => {
 try {
@@ -310,12 +275,6 @@ error
 );
 }
 }, [chats]);
-
-# /*
-
-# SAVE SETTINGS
-
-*/
 
 useEffect(() => {
 try {
@@ -344,11 +303,6 @@ if (typeof document !== "undefined") {
 
 }, [settings]);
 
-# /*
-
-# REAL SESSION
-
-*/
 
 async function checkSession() {
 try {
@@ -471,11 +425,6 @@ behavior: "smooth",
 }
 }, [messages, loading, showScrollButton]);
 
-# /*
-
-# SCROLL DETECTION
-
-*/
 
 function handleMessagesScroll() {
 const element =
@@ -507,11 +456,6 @@ setShowScrollButton(false);
 
 }
 
-# /*
-
-# TEXTAREA
-
-*/
 
 function resizeTextarea() {
 const textarea = textareaRef.current;
@@ -531,11 +475,6 @@ textarea.style.height = `${Math.min(
 
 }
 
-# /*
-
-# CREATE CHAT
-
-*/
 
 function createChat() {
 if (loading) {
