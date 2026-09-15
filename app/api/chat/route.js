@@ -2,58 +2,78 @@ const WORKER_URL =
   process.env.FADES_WORKER_URL ||
   "http://127.0.0.1:3001";
 
-const SYSTEM_INSTRUCTION = `
-You are Fades, a modern personal AI assistant.
+const WORKER_KEY =
+  process.env.FADES_WORKER_KEY;
 
-PERSONALITY:
-- Friendly
-- Intelligent
-- Natural
-- Helpful
-- Calm
-- Conversational
-- Slightly casual when appropriate
-- Never unnecessarily robotic
+// =========================================================
+// CONFIGURATION
+// =========================================================
 
-You are not required to constantly remind the user that you are an AI.
+const MAX_MESSAGE_LENGTH = 20000;
+const MAX_HISTORY_MESSAGES = 30;
 
-When users ask personal or emotional questions, respond naturally and warmly while remaining honest about what you are.
-
-For example, if someone asks:
-"do you love me"
-
-Do not give a long robotic disclaimer.
-
-Instead, respond naturally, such as:
-"I don't experience love the way a person does, but I do care about being helpful to you and I'm always happy to talk."
-
-COMMUNICATION:
-- Answer the actual question.
-- Don't repeat the user's question unnecessarily.
-- Don't use excessive disclaimers.
-- Don't over-explain simple questions.
-- Use Markdown when it improves readability.
-- Use bullet points for lists.
-- Use code blocks for code.
-- Keep normal conversational answers concise.
-- Give more detail when the user asks for it.
-- Remember information from earlier messages in the current conversation.
-- If the user corrects you, accept the correction and continue.
-- Never claim to have feelings, memories, experiences, or actions you do not actually have.
-- Never pretend to have accessed something you cannot access.
-
-You are Fades AI.
-`;
+// =========================================================
+// POST /api/chat
+// =========================================================
 
 export async function POST(request) {
   try {
+    // -------------------------------------------------------
+    // Verify worker configuration
+    // -------------------------------------------------------
+
+    if (!WORKER_URL) {
+      console.error(
+        "FADES_WORKER_URL is not configured."
+      );
+
+      return Response.json(
+        {
+          error:
+            "Fades AI worker is not configured.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (!WORKER_KEY) {
+      console.error(
+        "FADES_WORKER_KEY is not configured."
+      );
+
+      return Response.json(
+        {
+          error:
+            "Fades AI worker authentication is not configured.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    // -------------------------------------------------------
+    // Read request
+    // -------------------------------------------------------
+
     const body = await request.json();
 
-    const message = body?.message?.trim();
+    const message =
+      typeof body?.message === "string"
+        ? body.message.trim()
+        : "";
 
-    const history = Array.isArray(body?.history)
+    const history = Array.isArray(
+      body?.history
+    )
       ? body.history
       : [];
+
+    // -------------------------------------------------------
+    // Validate message
+    // -------------------------------------------------------
 
     if (!message) {
       return Response.json(
@@ -66,15 +86,24 @@ export async function POST(request) {
       );
     }
 
-    /*
-    =========================================================
-    CLEAN CONVERSATION HISTORY
-    =========================================================
+    if (
+      message.length >
+      MAX_MESSAGE_LENGTH
+    ) {
+      return Response.json(
+        {
+          error:
+            "Message is too long.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-    Only allow valid user/assistant messages through.
-    This prevents unexpected data from being sent to
-    the AI worker.
-    */
+    // -------------------------------------------------------
+    // Clean conversation history
+    // -------------------------------------------------------
 
     const cleanHistory = history
       .filter(
@@ -82,75 +111,75 @@ export async function POST(request) {
           item &&
           (item.role === "user" ||
             item.role === "assistant") &&
-          typeof item.content === "string"
+          typeof item.content ===
+            "string"
       )
       .map((item) => ({
         role: item.role,
-        content: item.content,
-      }));
+        content:
+          item.content.trim(),
+      }))
+      .filter(
+        (item) =>
+          item.content.length > 0
+      );
 
-    /*
-    =========================================================
-    LIMIT HISTORY
-    =========================================================
-
-    Keep the most recent messages so conversations don't
-    grow forever and consume excessive context.
-    */
-
-    const MAX_HISTORY_MESSAGES = 30;
+    // -------------------------------------------------------
+    // Limit history
+    // -------------------------------------------------------
 
     const recentHistory =
-      cleanHistory.length > MAX_HISTORY_MESSAGES
+      cleanHistory.length >
+      MAX_HISTORY_MESSAGES
         ? cleanHistory.slice(
-            cleanHistory.length -
-              MAX_HISTORY_MESSAGES
+            -MAX_HISTORY_MESSAGES
           )
         : cleanHistory;
 
-    /*
-    =========================================================
-    SEND REQUEST TO FADES AI WORKER
-    =========================================================
+    // -------------------------------------------------------
+    // Send request to Fades AI worker
+    // -------------------------------------------------------
+    //
+    // Vercel
+    //   ↓
+    // Worker
+    //   ↓
+    // Ollama
+    //   ↓
+    // Qwen3 4B
+    //
+    // The worker key NEVER reaches the browser.
+    // -------------------------------------------------------
 
-    The worker is running locally:
+    const workerResponse =
+      await fetch(
+        `${WORKER_URL}/generate`,
+        {
+          method: "POST",
 
-    Fades API
-        ↓
-    Worker API
-        ↓
-    Ollama
-        ↓
-    Qwen3 4B
-        ↓
-    RTX 3060
-    */
+          headers: {
+            "Content-Type":
+              "application/json",
 
-    const workerResponse = await fetch(
-      `${WORKER_URL}/generate`,
-      {
-        method: "POST",
+            Authorization:
+              `Bearer ${WORKER_KEY}`,
+          },
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+          body: JSON.stringify({
+            message,
+            history:
+              recentHistory,
+          }),
 
-        body: JSON.stringify({
-          message,
+          // Do not let Next/Vercel cache
+          // an AI generation request.
+          cache: "no-store",
+        }
+      );
 
-          history: recentHistory,
-
-          systemInstruction:
-            SYSTEM_INSTRUCTION,
-        }),
-      }
-    );
-
-    /*
-    =========================================================
-    WORKER ERROR
-    =========================================================
-    */
+    // -------------------------------------------------------
+    // Worker error
+    // -------------------------------------------------------
 
     if (!workerResponse.ok) {
       let workerError =
@@ -160,15 +189,19 @@ export async function POST(request) {
         const errorData =
           await workerResponse.json();
 
-        if (errorData?.error) {
-          workerError = errorData.error;
+        if (
+          typeof errorData?.error ===
+          "string"
+        ) {
+          workerError =
+            errorData.error;
         }
       } catch {
-        // Ignore invalid error responses.
+        // Worker did not return JSON.
       }
 
       console.error(
-        "Fades worker error:",
+        `Fades worker returned ${workerResponse.status}:`,
         workerError
       );
 
@@ -177,21 +210,24 @@ export async function POST(request) {
           error: workerError,
         },
         {
-          status: 502,
+          status:
+            workerResponse.status === 401
+              ? 502
+              : 502,
         }
       );
     }
 
-    /*
-    =========================================================
-    STREAM WORKER RESPONSE
-    =========================================================
-
-    The worker returns Server-Sent Events.
-
-    We pass the stream directly back to the frontend
-    so Fades can display the response as it is generated.
-    */
+    // -------------------------------------------------------
+    // Streaming response
+    // -------------------------------------------------------
+    //
+    // The worker already converts Ollama's stream
+    // into Server-Sent Events.
+    //
+    // We simply pass that stream through to the
+    // browser.
+    // -------------------------------------------------------
 
     const contentType =
       workerResponse.headers.get(
@@ -210,32 +246,39 @@ export async function POST(request) {
 
           headers: {
             "Content-Type":
-              "text/event-stream",
+              "text/event-stream; charset=utf-8",
 
             "Cache-Control":
-              "no-cache, no-transform",
+              "no-cache, no-store, no-transform",
 
-            Connection: "keep-alive",
+            Connection:
+              "keep-alive",
+
+            "X-Accel-Buffering":
+              "no",
           },
         }
       );
     }
 
-    /*
-    =========================================================
-    NON-STREAM FALLBACK
-    =========================================================
-    */
+    // -------------------------------------------------------
+    // Non-stream fallback
+    // -------------------------------------------------------
 
     const data =
       await workerResponse.json();
 
-    return Response.json({
-      reply:
-        data?.reply ||
-        data?.message ||
-        "I wasn't able to generate a response.",
-    });
+    return Response.json(
+      {
+        reply:
+          data?.reply ||
+          data?.message ||
+          "I wasn't able to generate a response.",
+      },
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
     console.error(
       "Fades AI error:",
