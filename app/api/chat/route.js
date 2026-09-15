@@ -1,53 +1,37 @@
 const WORKER_URL = process.env.FADES_WORKER_URL;
 const WORKER_KEY = process.env.FADES_WORKER_KEY;
 
-// =========================================================
-// CONFIGURATION
-// =========================================================
-
 const MAX_MESSAGE_LENGTH = 20000;
 const MAX_HISTORY_MESSAGES = 30;
 
-// =========================================================
-// POST /api/chat
-// =========================================================
-
 export async function POST(request) {
 try {
-// -------------------------------------------------------
-// Verify worker configuration
-// -------------------------------------------------------
+console.log("[FADES] /api/chat request received");
 
+
+console.log("[FADES] Worker URL:", WORKER_URL || "(missing)");
+console.log(
+  "[FADES] Worker key:",
+  WORKER_KEY ? "configured" : "missing"
+);
 
 if (!WORKER_URL) {
-  console.error("FADES_WORKER_URL is not configured.");
-
   return Response.json(
     {
-      error: "Fades AI worker is not configured.",
+      error: "FADES_WORKER_URL is not configured.",
     },
-    {
-      status: 500,
-    }
+    { status: 500 }
   );
 }
 
 if (!WORKER_KEY) {
-  console.error("FADES_WORKER_KEY is not configured.");
-
   return Response.json(
     {
-      error: "Fades AI worker authentication is not configured.",
+      error: "FADES_WORKER_KEY is not configured.",
     },
-    {
-      status: 500,
-    }
+    { status: 500 }
   );
 }
-
-// -------------------------------------------------------
-// Read request
-// -------------------------------------------------------
 
 const body = await request.json();
 
@@ -60,18 +44,12 @@ const history = Array.isArray(body?.history)
   ? body.history
   : [];
 
-// -------------------------------------------------------
-// Validate message
-// -------------------------------------------------------
-
 if (!message) {
   return Response.json(
     {
       error: "Message is required.",
     },
-    {
-      status: 400,
-    }
+    { status: 400 }
   );
 }
 
@@ -80,15 +58,9 @@ if (message.length > MAX_MESSAGE_LENGTH) {
     {
       error: "Message is too long.",
     },
-    {
-      status: 400,
-    }
+    { status: 400 }
   );
 }
-
-// -------------------------------------------------------
-// Clean conversation history
-// -------------------------------------------------------
 
 const cleanHistory = history
   .filter(
@@ -104,22 +76,23 @@ const cleanHistory = history
   }))
   .filter((item) => item.content.length > 0);
 
-// -------------------------------------------------------
-// Limit history
-// -------------------------------------------------------
-
 const recentHistory =
   cleanHistory.length > MAX_HISTORY_MESSAGES
     ? cleanHistory.slice(-MAX_HISTORY_MESSAGES)
     : cleanHistory;
 
-// -------------------------------------------------------
-// Send request to Fades AI worker
-// -------------------------------------------------------
+const workerEndpoint =
+  `${WORKER_URL.replace(/\/+$/, "")}/generate`;
 
-const workerResponse = await fetch(
-  `${WORKER_URL.replace(/\/+$/, "")}/generate`,
-  {
+console.log(
+  "[FADES] Connecting to worker:",
+  workerEndpoint
+);
+
+let workerResponse;
+
+try {
+  workerResponse = await fetch(workerEndpoint, {
     method: "POST",
 
     headers: {
@@ -133,12 +106,33 @@ const workerResponse = await fetch(
     }),
 
     cache: "no-store",
-  }
+  });
+} catch (workerFetchError) {
+  console.error(
+    "[FADES] Worker fetch failed:",
+    workerFetchError
+  );
+
+  return Response.json(
+    {
+      error: "Unable to connect to Fades AI worker.",
+      details:
+        workerFetchError?.message ||
+        String(workerFetchError),
+    },
+    { status: 502 }
+  );
+}
+
+console.log(
+  "[FADES] Worker status:",
+  workerResponse.status
 );
 
-// -------------------------------------------------------
-// Worker error
-// -------------------------------------------------------
+console.log(
+  "[FADES] Worker content type:",
+  workerResponse.headers.get("content-type")
+);
 
 if (!workerResponse.ok) {
   let workerError = "Fades AI worker failed.";
@@ -150,47 +144,54 @@ if (!workerResponse.ok) {
       workerError = errorData.error;
     }
   } catch {
-    // Worker did not return JSON.
+    try {
+      const text = await workerResponse.text();
+
+      if (text) {
+        workerError = text.slice(0, 1000);
+      }
+    } catch {
+      // Ignore unreadable worker response.
+    }
   }
 
   console.error(
-    `Fades worker returned ${workerResponse.status}:`,
+    "[FADES] Worker returned error:",
+    workerResponse.status,
     workerError
   );
 
   return Response.json(
     {
       error: workerError,
+      workerStatus: workerResponse.status,
     },
-    {
-      status: 502,
-    }
+    { status: 502 }
   );
 }
-
-// -------------------------------------------------------
-// Streaming response
-// -------------------------------------------------------
 
 const contentType =
   workerResponse.headers.get("content-type") || "";
 
 if (contentType.includes("text/event-stream")) {
+  console.log("[FADES] Streaming worker response");
+
   return new Response(workerResponse.body, {
     status: 200,
 
     headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-store, no-transform",
+      "Content-Type":
+        "text/event-stream; charset=utf-8",
+
+      "Cache-Control":
+        "no-cache, no-store, no-transform",
+
       Connection: "keep-alive",
+
       "X-Accel-Buffering": "no",
     },
   });
 }
-
-// -------------------------------------------------------
-// Non-stream fallback
-// -------------------------------------------------------
 
 const data = await workerResponse.json();
 
@@ -201,14 +202,12 @@ return Response.json(
       data?.message ||
       "I wasn't able to generate a response.",
   },
-  {
-    status: 200,
-  }
+  { status: 200 }
 );
 
 
 } catch (error) {
-console.error("Fades AI error:", error);
+console.error("[FADES] /api/chat fatal error:", error);
 
 
 return Response.json(
@@ -217,9 +216,7 @@ return Response.json(
       error?.message ||
       "Fades could not generate a response.",
   },
-  {
-    status: 500,
-  }
+  { status: 500 }
 );
 
 
