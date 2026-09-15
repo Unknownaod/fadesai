@@ -14,6 +14,7 @@ const STORAGE_KEY = "fades.chats.v2";
 const SETTINGS_KEY = "fades.settings.v1";
 const API_URL = "https://api.fades.lol";
 const MAX_TEXTAREA_HEIGHT = 180;
+const MODEL_NAME = "Qwen 3 4B";
 
 const DEFAULT_SETTINGS = {
   theme: "dark",
@@ -25,25 +26,21 @@ const DEFAULT_SETTINGS = {
 
 const SUGGESTIONS = [
   {
-    icon: "✦",
     title: "Explain something",
     description: "Break down a complicated topic",
     prompt: "Explain something complicated to me in a simple way.",
   },
   {
-    icon: "⌘",
     title: "Build something",
     description: "Create code, websites, and more",
     prompt: "Help me build something from scratch.",
   },
   {
-    icon: "✧",
     title: "Get creative",
     description: "Brainstorm ideas and possibilities",
     prompt: "Give me some creative ideas for a project.",
   },
   {
-    icon: "◎",
     title: "Learn something",
     description: "Understand something new",
     prompt: "Teach me something interesting that I probably don't know.",
@@ -110,55 +107,28 @@ function downloadFile(filename, content, type) {
 function normalizeMessage(raw) {
   if (!raw || typeof raw !== "object") return null;
 
-  const role = raw.role === "user" ? "user" : "assistant";
   const content = typeof raw.content === "string" ? raw.content : "";
 
   if (!content) return null;
 
   return {
     id: createId("message"),
-    role,
+    role: raw.role === "user" ? "user" : "assistant",
     content,
     createdAt:
       typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
   };
 }
 
-/* ---------------------------------------------------------------- */
-/* Code block (module scope so it isn't remounted every render)      */
-/* ---------------------------------------------------------------- */
-
-function CodeBlock({ className, children, onCopy, ...props }) {
-  const code = String(children ?? "").replace(/\n$/, "");
-  const match = /language-([\w-]+)/.exec(className || "");
-  const isBlock = Boolean(match) || code.includes("\n");
-
-  if (!isBlock) {
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
-  }
-
-  return (
-    <div className="code-block">
-      <div className="code-toolbar">
-        <span>{match ? match[1] : "code"}</span>
-
-        <button type="button" onClick={() => onCopy(code)}>
-          Copy
-        </button>
-      </div>
-
-      <pre>
-        <code className={className} {...props}>
-          {children}
-        </code>
-      </pre>
-    </div>
-  );
-}
+/* globals.css styles p / ul / code / pre / table inside .message-content
+   directly, so markdown only needs link behaviour overridden. */
+const MARKDOWN_COMPONENTS = {
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  ),
+};
 
 /* ---------------------------------------------------------------- */
 /* Page                                                              */
@@ -178,14 +148,12 @@ export default function Home() {
 
   /* UI state */
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
 
   /* Auth state */
   const [user, setUser] = useState(null);
@@ -213,21 +181,24 @@ export default function Home() {
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
   const searchInputRef = useRef(null);
-  const toastTimerRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  const toastTimersRef = useRef(new Map());
 
   /* -------------------------------------------------------------- */
-  /* Toast                                                           */
+  /* Toasts                                                          */
   /* -------------------------------------------------------------- */
 
-  const showToast = useCallback((text, type = "normal") => {
-    setToast({ id: createId("toast"), text, type });
+  const showToast = useCallback((text, type = "success") => {
+    const id = createId("toast");
 
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
+    setToasts((current) => [...current.slice(-2), { id, text, type }]);
 
-    toastTimerRef.current = setTimeout(() => setToast(null), 2800);
+    const timer = setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.id !== id));
+      toastTimersRef.current.delete(id);
+    }, 2800);
+
+    toastTimersRef.current.set(id, timer);
   }, []);
 
   /* -------------------------------------------------------------- */
@@ -259,7 +230,7 @@ export default function Home() {
   }, []);
 
   /* -------------------------------------------------------------- */
-  /* Load local data                                                 */
+  /* Load and persist                                                */
   /* -------------------------------------------------------------- */
 
   useEffect(() => {
@@ -269,9 +240,7 @@ export default function Home() {
       if (savedChats) {
         const parsed = JSON.parse(savedChats);
 
-        if (Array.isArray(parsed)) {
-          setChats(parsed);
-        }
+        if (Array.isArray(parsed)) setChats(parsed);
       }
 
       const savedSettings = localStorage.getItem(SETTINGS_KEY);
@@ -291,7 +260,6 @@ export default function Home() {
     checkSession();
   }, [checkSession]);
 
-  /* Persist chats — only after hydration, so we never clobber storage */
   useEffect(() => {
     if (!hydrated) return;
 
@@ -302,7 +270,6 @@ export default function Home() {
     }
   }, [chats, hydrated]);
 
-  /* Persist settings */
   useEffect(() => {
     if (!hydrated) return;
 
@@ -313,7 +280,7 @@ export default function Home() {
     }
   }, [settings, hydrated]);
 
-  /* Apply theme (resolving "system" against the OS preference) */
+  /* Theme, resolving "system" against the OS preference */
   useEffect(() => {
     const root = document.documentElement;
 
@@ -335,19 +302,18 @@ export default function Home() {
     return () => query.removeEventListener("change", apply);
   }, [settings.theme, settings.compactMode]);
 
-  /* Cleanup on unmount */
   useEffect(() => {
+    const timers = toastTimersRef.current;
+
     return () => {
       abortControllerRef.current?.abort();
-
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 
   /* -------------------------------------------------------------- */
-  /* Chats                                                           */
+  /* Composer helpers                                                */
   /* -------------------------------------------------------------- */
 
   const focusComposer = useCallback(() => {
@@ -365,6 +331,10 @@ export default function Home() {
       MAX_TEXTAREA_HEIGHT
     )}px`;
   }, []);
+
+  /* -------------------------------------------------------------- */
+  /* Chats                                                           */
+  /* -------------------------------------------------------------- */
 
   const createChat = useCallback(() => {
     if (loading) return;
@@ -384,7 +354,6 @@ export default function Home() {
     setMessages([]);
     setMessage("");
     setSidebarOpen(false);
-    setSearchOpen(false);
     stickToBottomRef.current = true;
 
     focusComposer();
@@ -398,7 +367,6 @@ export default function Home() {
       setMessages(chat.messages || []);
       setMessage("");
       setSidebarOpen(false);
-      setSearchOpen(false);
       setProfileOpen(false);
       stickToBottomRef.current = true;
 
@@ -416,15 +384,11 @@ export default function Home() {
     return `${clean.slice(0, 48)}...`;
   }
 
-  /* Returns the id of the chat the message belongs to, creating one
-     if there is no valid active chat. */
   const ensureChat = useCallback(
     (text) => {
-      const existing = chats.some((chat) => chat.id === activeChatId);
+      const exists = chats.some((chat) => chat.id === activeChatId);
 
-      if (activeChatId && existing) {
-        return activeChatId;
-      }
+      if (activeChatId && exists) return activeChatId;
 
       const newChat = {
         id: createId("chat"),
@@ -533,8 +497,7 @@ export default function Home() {
             const errorText = await response.text();
 
             try {
-              const errorData = JSON.parse(errorText);
-              errorMessage = errorData?.error || errorMessage;
+              errorMessage = JSON.parse(errorText)?.error || errorMessage;
             } catch {
               if (errorText) errorMessage = errorText;
             }
@@ -583,7 +546,7 @@ export default function Home() {
                 continue;
               }
 
-              /* Server-reported errors must escape the parse guard. */
+              /* A server-reported error must escape the parse guard. */
               if (data.error) {
                 streamError = new Error(data.error);
                 break;
@@ -685,8 +648,7 @@ export default function Home() {
     abortControllerRef.current?.abort();
   }
 
-  /* Regenerate / retry: rewind to the prompt and resend it with the
-     correct history instead of whatever state the closure captured. */
+  /* Rewind to the prompt and resend it with the correct history. */
   const resendFrom = useCallback(
     async (index) => {
       if (loading) return;
@@ -775,8 +737,6 @@ export default function Home() {
           : chat
       )
     );
-
-    showToast("Chat pin updated.");
   }
 
   function toggleFavorite(chatId) {
@@ -787,8 +747,6 @@ export default function Home() {
           : chat
       )
     );
-
-    showToast("Favorites updated.");
   }
 
   function clearAllChats() {
@@ -799,6 +757,7 @@ export default function Home() {
     setActiveChatId(null);
     setMessage("");
     setClearConfirmOpen(false);
+    setSettingsOpen(false);
 
     showToast("All chats cleared.");
   }
@@ -827,11 +786,10 @@ export default function Home() {
     }
 
     const chat = chats.find((item) => item.id === activeChatId);
-    const title = chat?.title || "Fades conversation";
 
     const lines = [
       "Fades AI",
-      title,
+      chat?.title || "Fades conversation",
       `Exported ${formatDate(Date.now())}`,
       "",
       "--------------------------------",
@@ -870,10 +828,6 @@ export default function Home() {
     );
 
     showToast("All chats exported.");
-  }
-
-  function importChats() {
-    fileInputRef.current?.click();
   }
 
   async function handleImport(event) {
@@ -1029,8 +983,8 @@ export default function Home() {
 
       if (modifier && event.shiftKey && key === "f") {
         event.preventDefault();
-        setSearchOpen(true);
-        window.setTimeout(() => searchInputRef.current?.focus(), 50);
+        setSidebarOpen(true);
+        window.setTimeout(() => searchInputRef.current?.focus(), 60);
         return;
       }
 
@@ -1042,16 +996,13 @@ export default function Home() {
 
       if (event.key === "Escape") {
         setSidebarOpen(false);
-        setSearchOpen(false);
         setProfileOpen(false);
         setSettingsOpen(false);
         setAboutOpen(false);
         setModelOpen(false);
         setClearConfirmOpen(false);
 
-        if (!authSubmitting) {
-          setAuthOpen(false);
-        }
+        if (!authSubmitting) setAuthOpen(false);
       }
     }
 
@@ -1079,13 +1030,6 @@ export default function Home() {
       element.scrollHeight - element.scrollTop - element.clientHeight;
 
     stickToBottomRef.current = distance < 80;
-    setShowScrollButton(distance > 500);
-  }
-
-  function scrollToBottom() {
-    stickToBottomRef.current = true;
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    setShowScrollButton(false);
   }
 
   /* -------------------------------------------------------------- */
@@ -1106,16 +1050,13 @@ export default function Home() {
           )
         );
       })
-      .sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-
-        return (b.updatedAt || 0) - (a.updatedAt || 0);
-      });
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }, [chats, search]);
 
+  const pinnedChats = filteredChats.filter((chat) => chat.pinned);
+  const otherChats = filteredChats.filter((chat) => !chat.pinned);
+
   const hasMessages = messages.length > 0;
-  const currentChat = chats.find((chat) => chat.id === activeChatId);
-  const messageCount = messages.length;
 
   const totalMessages = useMemo(
     () =>
@@ -1131,20 +1072,88 @@ export default function Home() {
     user?.username?.charAt(0)?.toUpperCase() ||
     "F";
 
-  const markdownComponents = useMemo(
-    () => ({
-      h1: ({ children }) => <h2>{children}</h2>,
-      h2: ({ children }) => <h3>{children}</h3>,
-      h3: ({ children }) => <h4>{children}</h4>,
-      a: ({ children, href }) => (
-        <a href={href} target="_blank" rel="noreferrer">
-          {children}
-        </a>
-      ),
-      code: (props) => <CodeBlock {...props} onCopy={copyText} />,
-    }),
-    [copyText]
-  );
+  /* -------------------------------------------------------------- */
+  /* Chat list item                                                  */
+  /* -------------------------------------------------------------- */
+
+  function renderChat(chat) {
+    return (
+      <div
+        key={chat.id}
+        className={`chat-item ${activeChatId === chat.id ? "active" : ""}`}
+      >
+        {editingChatId === chat.id ? (
+          <input
+            className="chat-rename"
+            value={editingTitle}
+            autoFocus
+            onChange={(event) => setEditingTitle(event.target.value)}
+            onBlur={() => saveRename(chat.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                saveRename(chat.id);
+              }
+
+              if (event.key === "Escape") {
+                setEditingChatId(null);
+                setEditingTitle("");
+              }
+            }}
+          />
+        ) : (
+          <button
+            className="chat-item-main"
+            type="button"
+            onClick={() => openChat(chat)}
+          >
+            <span className="chat-icon">{chat.favorite ? "★" : "◌"}</span>
+            <span className="chat-title">{chat.title}</span>
+          </button>
+        )}
+
+        {editingChatId !== chat.id && (
+          <div className="chat-actions">
+            <button
+              type="button"
+              title={chat.pinned ? "Unpin" : "Pin"}
+              aria-label={chat.pinned ? "Unpin chat" : "Pin chat"}
+              onClick={() => togglePin(chat.id)}
+            >
+              {chat.pinned ? "◆" : "◇"}
+            </button>
+
+            <button
+              type="button"
+              title="Favorite"
+              aria-label="Favorite chat"
+              onClick={() => toggleFavorite(chat.id)}
+            >
+              {chat.favorite ? "★" : "☆"}
+            </button>
+
+            <button
+              type="button"
+              title="Rename"
+              aria-label="Rename chat"
+              onClick={() => startRename(chat)}
+            >
+              ···
+            </button>
+
+            <button
+              type="button"
+              title="Delete"
+              aria-label="Delete chat"
+              onClick={() => deleteChat(chat.id)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   /* -------------------------------------------------------------- */
   /* Render                                                          */
@@ -1152,9 +1161,6 @@ export default function Home() {
 
   return (
     <main className="app">
-      <div className="ambient" />
-      <div className="noise" />
-
       {sidebarOpen && (
         <button
           className="sidebar-overlay"
@@ -1168,12 +1174,10 @@ export default function Home() {
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar-top">
           <div className="sidebar-brand">
-            <div className="brand-mark">
-              <span>f</span>
-            </div>
+            <div className="brand-mark">f</div>
 
             <div className="brand-name">
-              <span>Fades</span>
+              Fades
               <small>AI</small>
             </div>
           </div>
@@ -1196,127 +1200,51 @@ export default function Home() {
         >
           <span>+</span>
           <strong>New chat</strong>
-          <kbd>⌘ K</kbd>
+          <kbd>⌘K</kbd>
         </button>
 
-        <button
-          className="sidebar-search-button"
-          type="button"
-          onClick={() => {
-            setSearchOpen(true);
-            window.setTimeout(() => searchInputRef.current?.focus(), 50);
-          }}
-        >
+        <div className="sidebar-search">
           <span>⌕</span>
-          <span>Search chats</span>
-          <kbd>⌘ ⇧ F</kbd>
-        </button>
 
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">
-            <span>Your chats</span>
-            {chats.length > 0 && <span>{chats.length}</span>}
-          </div>
+          <input
+            ref={searchInputRef}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search chats"
+            aria-label="Search chats"
+          />
+        </div>
 
-          <div className="chat-list">
-            {filteredChats.length === 0 ? (
-              <div className="empty-chats">
-                <span className="empty-icon">◌</span>
-                <p>{search ? "No matches" : "No chats yet"}</p>
-                <small>
-                  {search
-                    ? "Try another search."
-                    : "Start a conversation and it will appear here."}
-                </small>
-              </div>
-            ) : (
-              filteredChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className={`chat-item ${
-                    activeChatId === chat.id ? "active" : ""
-                  }`}
-                >
-                  {editingChatId === chat.id ? (
-                    <input
-                      className="chat-rename"
-                      value={editingTitle}
-                      autoFocus
-                      onChange={(event) =>
-                        setEditingTitle(event.target.value)
-                      }
-                      onBlur={() => saveRename(chat.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          saveRename(chat.id);
-                        }
-
-                        if (event.key === "Escape") {
-                          setEditingChatId(null);
-                          setEditingTitle("");
-                        }
-                      }}
-                    />
-                  ) : (
-                    <button
-                      className="chat-item-main"
-                      type="button"
-                      onClick={() => openChat(chat)}
-                    >
-                      <span className="chat-icon">
-                        {chat.favorite ? "★" : "◌"}
-                      </span>
-
-                      <span className="chat-title">{chat.title}</span>
-
-                      {chat.pinned && <span className="chat-pin">◆</span>}
-                    </button>
-                  )}
-
-                  {editingChatId !== chat.id && (
-                    <div className="chat-actions">
-                      <button
-                        type="button"
-                        title="Pin"
-                        aria-label="Pin chat"
-                        onClick={() => togglePin(chat.id)}
-                      >
-                        {chat.pinned ? "◆" : "◇"}
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Favorite"
-                        aria-label="Favorite chat"
-                        onClick={() => toggleFavorite(chat.id)}
-                      >
-                        {chat.favorite ? "★" : "☆"}
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Rename"
-                        aria-label="Rename chat"
-                        onClick={() => startRename(chat)}
-                      >
-                        ···
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Delete"
-                        aria-label="Delete chat"
-                        onClick={() => deleteChat(chat.id)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
+        <div className="chat-list">
+          {filteredChats.length === 0 ? (
+            <div className="empty-chats">
+              <span className="empty-icon">◌</span>
+              <p>{search ? "No matches" : "No chats yet"}</p>
+              <small>
+                {search
+                  ? "Try another search."
+                  : "Start a conversation and it will appear here."}
+              </small>
+            </div>
+          ) : (
+            <>
+              {pinnedChats.length > 0 && (
+                <div className="chat-group">
+                  <div className="chat-group-title">Pinned</div>
+                  {pinnedChats.map(renderChat)}
                 </div>
-              ))
-            )}
-          </div>
+              )}
+
+              {otherChats.length > 0 && (
+                <div className="chat-group">
+                  <div className="chat-group-title">
+                    {pinnedChats.length > 0 ? "Recent" : "Chats"}
+                  </div>
+                  {otherChats.map(renderChat)}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="sidebar-bottom">
@@ -1346,15 +1274,6 @@ export default function Home() {
 
           {profileOpen && user && (
             <div className="profile-menu">
-              <div className="profile-header">
-                <div className="profile-avatar">{avatarLetter}</div>
-
-                <div>
-                  <strong>{user.displayName || user.username}</strong>
-                  <span>@{user.username}</span>
-                </div>
-              </div>
-
               <button
                 type="button"
                 onClick={() => {
@@ -1362,7 +1281,6 @@ export default function Home() {
                   setProfileOpen(false);
                 }}
               >
-                <span>⚙</span>
                 Settings
               </button>
 
@@ -1373,12 +1291,10 @@ export default function Home() {
                   setProfileOpen(false);
                 }}
               >
-                <span>ⓘ</span>
                 About Fades
               </button>
 
               <button type="button" className="danger" onClick={logout}>
-                <span>↪</span>
                 Sign out
               </button>
             </div>
@@ -1399,33 +1315,35 @@ export default function Home() {
           </button>
 
           <div className="mobile-brand">
-            <div className="brand-mark">
-              <span>f</span>
-            </div>
+            <div className="brand-mark">f</div>
 
             <div className="brand-name">
-              <span>Fades</span>
+              Fades
               <small>AI</small>
             </div>
           </div>
 
-          {hasMessages && (
-            <div className="current-chat-name">
-              <span>{currentChat?.title || "New chat"}</span>
-            </div>
-          )}
-
           <div className="topbar-spacer" />
 
-          <button
-            className="model-button"
-            type="button"
-            onClick={() => setModelOpen((current) => !current)}
-          >
-            <span className="status-dot" />
-            <span>Qwen 3 4B</span>
-            <span>⌄</span>
-          </button>
+          <div className="header-controls">
+            {hasMessages && (
+              <button
+                className="header-control"
+                type="button"
+                onClick={exportCurrentChat}
+              >
+                Export
+              </button>
+            )}
+
+            <button
+              className="header-control"
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+            >
+              Settings
+            </button>
+          </div>
 
           {!authLoading &&
             (!user ? (
@@ -1459,36 +1377,15 @@ export default function Home() {
             <span className="plus">+</span>
             <span>New chat</span>
           </button>
-
-          {modelOpen && (
-            <div className="model-menu">
-              <div className="model-menu-title">Current model</div>
-
-              <button type="button" className="model-option active">
-                <div>
-                  <strong>Qwen 3 4B</strong>
-                  <span>Fades AI · Local GPU</span>
-                </div>
-
-                <span>✓</span>
-              </button>
-
-              <div className="model-info">
-                Running on your Fades inference infrastructure.
-              </div>
-            </div>
-          )}
         </header>
 
         <section className={`hero ${hasMessages ? "chat-active" : ""}`}>
           {!hasMessages ? (
             <div className="hero-content">
-              <div className="hero-badge">
-                <span className="status-dot" />
+              <div className="hero-status">
+                <span className="hero-status-dot" />
                 Fades AI is online
               </div>
-
-              <div className="fade-rule" aria-hidden="true" />
 
               <h1>What can I help with?</h1>
 
@@ -1505,209 +1402,204 @@ export default function Home() {
                     type="button"
                     onClick={() => applySuggestion(item.prompt)}
                   >
-                    <span className="suggestion-icon">{item.icon}</span>
-
-                    <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.description}</span>
-                    </div>
-
-                    <span className="suggestion-arrow">→</span>
+                    <strong>{item.title}</strong>
+                    <span>{item.description}</span>
                   </button>
                 ))}
-              </div>
-
-              <div className="hero-meta">
-                <span>Private infrastructure</span>
-                <span>•</span>
-                <span>Qwen 3 4B</span>
-                <span>•</span>
-                <span>Fades AI</span>
               </div>
             </div>
           ) : (
             <div
-              className={`messages ${
-                settings.compactMode ? "compact" : ""
-              }`}
+              className="messages"
               ref={messagesContainerRef}
               onScroll={handleMessagesScroll}
               role="log"
               aria-live="polite"
             >
-              <div className="conversation-header">
-                <div>
-                  <span>Conversation</span>
-                  <strong>{messageCount} messages</strong>
-                </div>
-
-                <div className="conversation-tools">
-                  <button type="button" onClick={exportCurrentChat}>
-                    Export
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setClearConfirmOpen(true)}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
               {messages.map((item, index) => (
                 <div
                   key={item.id}
                   className={`message-row ${item.role} ${
                     item.error ? "error" : ""
-                  } ${item.stopped ? "stopped" : ""}`}
+                  }`}
                 >
-                  <div className="message-avatar">
-                    {item.role === "user" ? avatarLetter : "f"}
+                  <div className="message-label">
+                    {item.role === "user"
+                      ? user?.displayName || user?.username || "You"
+                      : "Fades"}
+                    {settings.showTimestamps && item.createdAt
+                      ? ` · ${formatTime(item.createdAt)}`
+                      : ""}
                   </div>
 
-                  <div className="message-main">
-                    <div className="message-header">
-                      <div className="message-label">
-                        {item.role === "user"
-                          ? user?.displayName || user?.username || "You"
-                          : "Fades"}
-
-                        {settings.showTimestamps && item.createdAt && (
-                          <span>{formatTime(item.createdAt)}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="message-content">
-                      {item.role === "assistant" ? (
-                        <ReactMarkdown components={markdownComponents}>
-                          {item.content}
-                        </ReactMarkdown>
-                      ) : (
-                        <p>{item.content}</p>
-                      )}
-                    </div>
-
-                    {item.streaming && !item.content && (
-                      <div className="streaming-placeholder">
-                        <span />
-                        <span />
-                        <span />
-                      </div>
-                    )}
-
-                    {item.role === "assistant" && !item.streaming && (
-                      <div className="message-actions">
-                        <button
-                          type="button"
-                          onClick={() => copyText(item.content)}
-                        >
-                          Copy
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => resendFrom(index)}
-                          disabled={loading}
-                        >
-                          {item.error ? "Retry" : "Regenerate"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {loading && (
-                <div className="generation-status">
-                  <div className="message-avatar">f</div>
-
-                  <div>
-                    <span>Fades is thinking</span>
-
+                  {item.role === "assistant" &&
+                  item.streaming &&
+                  !item.content ? (
                     <div className="thinking">
                       <span />
                       <span />
                       <span />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="message-content">
+                      {item.role === "assistant" ? (
+                        <>
+                          <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+                            {item.content}
+                          </ReactMarkdown>
 
-                  <button type="button" onClick={stopGeneration}>
-                    Stop
-                  </button>
+                          {item.streaming && (
+                            <span className="streaming-cursor" />
+                          )}
+                        </>
+                      ) : (
+                        item.content
+                      )}
+                    </div>
+                  )}
+
+                  {item.role === "assistant" && !item.streaming && (
+                    <div className="message-actions">
+                      <button
+                        type="button"
+                        onClick={() => copyText(item.content)}
+                      >
+                        Copy
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => resendFrom(index)}
+                        disabled={loading}
+                      >
+                        {item.error ? "Retry" : "Regenerate"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
 
               <div ref={messagesEndRef} />
             </div>
           )}
         </section>
 
-        {showScrollButton && (
-          <button
-            className="scroll-bottom"
-            type="button"
-            onClick={scrollToBottom}
-            aria-label="Scroll to bottom"
-          >
-            ↓
-          </button>
-        )}
-
         {/* Composer */}
         <div className="composer-container">
           <form className="composer" onSubmit={sendMessage}>
-            <button
-              type="button"
-              className="composer-add"
-              aria-label="Attachments"
-              onClick={() => showToast("Attachments are coming soon.")}
-            >
-              +
-            </button>
-
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(event) => {
-                setMessage(event.target.value);
-                resizeTextarea();
-              }}
-              onKeyDown={(event) => {
-                const send = settings.enterToSend
-                  ? event.key === "Enter" && !event.shiftKey
-                  : event.key === "Enter" &&
-                    (event.metaKey || event.ctrlKey);
-
-                if (send) {
-                  event.preventDefault();
-                  sendMessage(event);
-                }
-              }}
-              placeholder="Message Fades..."
-              rows={1}
-              disabled={loading}
-            />
-
-            {loading ? (
+            <div className="composer-row">
               <button
                 type="button"
-                className="send stop"
-                onClick={stopGeneration}
-                aria-label="Stop generation"
+                className="composer-add"
+                aria-label="Add an attachment"
+                onClick={() => showToast("Attachments are coming soon.")}
               >
-                ■
+                +
               </button>
-            ) : (
+
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(event) => {
+                  setMessage(event.target.value);
+                  resizeTextarea();
+                }}
+                onKeyDown={(event) => {
+                  const send = settings.enterToSend
+                    ? event.key === "Enter" && !event.shiftKey
+                    : event.key === "Enter" &&
+                      (event.metaKey || event.ctrlKey);
+
+                  if (send) {
+                    event.preventDefault();
+                    sendMessage(event);
+                  }
+                }}
+                placeholder="Message Fades..."
+                rows={1}
+                disabled={loading}
+              />
+
+              {loading ? (
+                <button
+                  type="button"
+                  className="send"
+                  onClick={stopGeneration}
+                  aria-label="Stop generating"
+                >
+                  ■
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className={`send ${message.trim() ? "active" : ""}`}
+                  aria-label="Send message"
+                  disabled={!message.trim()}
+                >
+                  ↑
+                </button>
+              )}
+            </div>
+
+            <div className="composer-tools">
               <button
-                type="submit"
-                className={`send ${message.trim() ? "active" : ""}`}
-                aria-label="Send message"
-                disabled={!message.trim()}
+                type="button"
+                className="model-selector"
+                onClick={() => setModelOpen((current) => !current)}
               >
-                ↑
+                <span className="model-dot" />
+                {MODEL_NAME}
+                <span>⌄</span>
               </button>
+
+              <button
+                type="button"
+                className={`composer-tool ${
+                  settings.showTimestamps ? "active" : ""
+                }`}
+                onClick={() =>
+                  updateSetting("showTimestamps", !settings.showTimestamps)
+                }
+              >
+                <span className="composer-tool-icon">◷</span>
+                Timestamps
+              </button>
+
+              {hasMessages && (
+                <button
+                  type="button"
+                  className="composer-tool"
+                  onClick={() => setClearConfirmOpen(true)}
+                >
+                  <span className="composer-tool-icon">×</span>
+                  Clear chats
+                </button>
+              )}
+            </div>
+
+            {modelOpen && (
+              <div className="dropdown" style={{ left: 8, bottom: 46 }}>
+                <button
+                  type="button"
+                  className="dropdown-item active"
+                  onClick={() => setModelOpen(false)}
+                >
+                  {MODEL_NAME}
+                </button>
+
+                <div className="dropdown-divider" />
+
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    setModelOpen(false);
+                    setAboutOpen(true);
+                  }}
+                >
+                  About this model
+                </button>
+              </div>
             )}
           </form>
 
@@ -1718,71 +1610,10 @@ export default function Home() {
                 : "⌘ + Enter to send · Enter for a new line"}
             </span>
 
-            <span className="model-label">
-              <span className="status-dot" />
-              Qwen 3 4B · Fades AI
-            </span>
+            <span className="model-label">{MODEL_NAME}</span>
           </div>
         </div>
       </div>
-
-      {/* Search */}
-      {searchOpen && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={() => setSearchOpen(false)}
-        >
-          <div
-            className="search-modal"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="search-modal-top">
-              <span>⌕</span>
-
-              <input
-                ref={searchInputRef}
-                autoFocus
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search your conversations..."
-              />
-
-              <kbd>ESC</kbd>
-            </div>
-
-            <div className="search-results">
-              {filteredChats.length === 0 ? (
-                <div className="search-empty">
-                  <span>⌕</span>
-                  <strong>No conversations found</strong>
-                  <small>Try a different search.</small>
-                </div>
-              ) : (
-                filteredChats.slice(0, 12).map((chat) => (
-                  <button
-                    key={chat.id}
-                    type="button"
-                    onClick={() => openChat(chat)}
-                  >
-                    <span>{chat.favorite ? "★" : "◌"}</span>
-
-                    <div>
-                      <strong>{chat.title}</strong>
-
-                      <small>
-                        {chat.messages?.length || 0} messages ·{" "}
-                        {formatDate(chat.updatedAt)}
-                      </small>
-                    </div>
-
-                    <span>→</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Auth */}
       {authOpen && (
@@ -1793,7 +1624,7 @@ export default function Home() {
           }}
         >
           <div
-            className="auth-modal"
+            className="login-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button
@@ -1819,14 +1650,16 @@ export default function Home() {
                 : "Create an account to keep your Fades experience connected."}
             </p>
 
-            {authError && <div className="auth-error">{authError}</div>}
-
             <form className="auth-form" onSubmit={submitAuth}>
+              {authError && <div className="auth-error">{authError}</div>}
+
               {authMode === "signup" && (
                 <>
-                  <label>
-                    Display name
+                  <div className="auth-field">
+                    <label htmlFor="fades-name">Display name</label>
+
                     <input
+                      id="fades-name"
                       type="text"
                       value={authDisplayName}
                       onChange={(event) =>
@@ -1836,11 +1669,13 @@ export default function Home() {
                       autoComplete="name"
                       disabled={authSubmitting}
                     />
-                  </label>
+                  </div>
 
-                  <label>
-                    Username
+                  <div className="auth-field">
+                    <label htmlFor="fades-username">Username</label>
+
                     <input
+                      id="fades-username"
                       type="text"
                       value={authUsername}
                       onChange={(event) =>
@@ -1853,13 +1688,15 @@ export default function Home() {
                       autoComplete="username"
                       disabled={authSubmitting}
                     />
-                  </label>
+                  </div>
                 </>
               )}
 
-              <label>
-                Email
+              <div className="auth-field">
+                <label htmlFor="fades-email">Email</label>
+
                 <input
+                  id="fades-email"
                   type="email"
                   value={authEmail}
                   onChange={(event) => setAuthEmail(event.target.value)}
@@ -1868,11 +1705,13 @@ export default function Home() {
                   autoComplete="email"
                   disabled={authSubmitting}
                 />
-              </label>
+              </div>
 
-              <label>
-                Password
+              <div className="auth-field">
+                <label htmlFor="fades-password">Password</label>
+
                 <input
+                  id="fades-password"
                   type="password"
                   value={authPassword}
                   onChange={(event) => setAuthPassword(event.target.value)}
@@ -1886,7 +1725,7 @@ export default function Home() {
                   }
                   disabled={authSubmitting}
                 />
-              </label>
+              </div>
 
               <button
                 className="auth-submit"
@@ -1902,11 +1741,9 @@ export default function Home() {
             </form>
 
             <div className="auth-switch">
-              <span>
-                {authMode === "login"
-                  ? "Don't have an account?"
-                  : "Already have an account?"}
-              </span>
+              {authMode === "login"
+                ? "Don't have an account? "
+                : "Already have an account? "}
 
               <button
                 type="button"
@@ -1946,35 +1783,33 @@ export default function Home() {
           onMouseDown={() => setSettingsOpen(false)}
         >
           <div
-            className="settings-modal"
+            className="login-modal settings-panel"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-heading">
-              <div>
-                <span>Preferences</span>
-                <h2>Settings</h2>
-              </div>
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close"
+              onClick={() => setSettingsOpen(false)}
+            >
+              ×
+            </button>
 
-              <button
-                className="modal-close"
-                type="button"
-                aria-label="Close"
-                onClick={() => setSettingsOpen(false)}
-              >
-                ×
-              </button>
-            </div>
+            <div className="settings-section">
+              <h3 className="settings-title">Appearance</h3>
 
-            <div className="settings-group">
-              <div className="settings-group-title">Appearance</div>
+              <p className="settings-description">
+                How Fades looks on this device.
+              </p>
 
-              <div className="setting-row">
-                <div>
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Theme</strong>
-                  <span>Choose how Fades looks.</span>
+                  <span>Dark, light, or follow your system.</span>
                 </div>
 
                 <select
+                  className="settings-select"
                   value={settings.theme}
                   onChange={(event) =>
                     updateSetting("theme", event.target.value)
@@ -1986,57 +1821,64 @@ export default function Home() {
                 </select>
               </div>
 
-              <div className="setting-row">
-                <div>
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Compact mode</strong>
                   <span>Fit more messages on screen.</span>
                 </div>
 
                 <button
                   type="button"
+                  aria-label="Compact mode"
                   aria-pressed={settings.compactMode}
-                  className={`toggle ${settings.compactMode ? "on" : ""}`}
+                  className={`toggle ${
+                    settings.compactMode ? "active" : ""
+                  }`}
                   onClick={() =>
                     updateSetting("compactMode", !settings.compactMode)
                   }
-                >
-                  <span />
-                </button>
+                />
               </div>
             </div>
 
-            <div className="settings-group">
-              <div className="settings-group-title">Chat</div>
+            <div className="settings-section">
+              <h3 className="settings-title">Chat</h3>
 
-              <div className="setting-row">
-                <div>
+              <p className="settings-description">
+                How the composer and messages behave.
+              </p>
+
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Enter to send</strong>
-                  <span>Press Enter to send messages.</span>
+                  <span>Otherwise, send with ⌘ + Enter.</span>
                 </div>
 
                 <button
                   type="button"
+                  aria-label="Enter to send"
                   aria-pressed={settings.enterToSend}
-                  className={`toggle ${settings.enterToSend ? "on" : ""}`}
+                  className={`toggle ${
+                    settings.enterToSend ? "active" : ""
+                  }`}
                   onClick={() =>
                     updateSetting("enterToSend", !settings.enterToSend)
                   }
-                >
-                  <span />
-                </button>
+                />
               </div>
 
-              <div className="setting-row">
-                <div>
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Message timestamps</strong>
-                  <span>Show the time beside messages.</span>
+                  <span>Show the time beside each message.</span>
                 </div>
 
                 <button
                   type="button"
+                  aria-label="Message timestamps"
                   aria-pressed={settings.showTimestamps}
                   className={`toggle ${
-                    settings.showTimestamps ? "on" : ""
+                    settings.showTimestamps ? "active" : ""
                   }`}
                   onClick={() =>
                     updateSetting(
@@ -2044,70 +1886,80 @@ export default function Home() {
                       !settings.showTimestamps
                     )
                   }
-                >
-                  <span />
-                </button>
-              </div>
-
-              <div className="setting-row">
-                <div>
-                  <strong>Sound effects</strong>
-                  <span>Play subtle interface sounds.</span>
-                </div>
-
-                <button
-                  type="button"
-                  aria-pressed={settings.soundEffects}
-                  className={`toggle ${settings.soundEffects ? "on" : ""}`}
-                  onClick={() =>
-                    updateSetting("soundEffects", !settings.soundEffects)
-                  }
-                >
-                  <span />
-                </button>
+                />
               </div>
             </div>
 
-            <div className="settings-group">
-              <div className="settings-group-title">Data</div>
+            <div className="settings-section">
+              <h3 className="settings-title">Data</h3>
 
-              <button
-                className="settings-action"
-                type="button"
-                onClick={exportAllChats}
-              >
-                <div>
+              <p className="settings-description">
+                Chats are stored in this browser.
+              </p>
+
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Export chats</strong>
-                  <span>Download your conversations as JSON.</span>
+                  <span>Download every conversation as JSON.</span>
                 </div>
 
-                <span>↓</span>
-              </button>
+                <button
+                  className="header-control"
+                  type="button"
+                  onClick={exportAllChats}
+                >
+                  Export
+                </button>
+              </div>
 
-              <button
-                className="settings-action"
-                type="button"
-                onClick={importChats}
-              >
-                <div>
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Import chats</strong>
                   <span>Restore a Fades chat export.</span>
                 </div>
 
-                <span>↑</span>
-              </button>
+                <button
+                  className="header-control"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Import
+                </button>
+              </div>
 
-              <button
-                className="settings-action danger"
-                type="button"
-                onClick={() => setClearConfirmOpen(true)}
-              >
-                <div>
+              <div className="settings-row">
+                <div className="settings-row-label">
                   <strong>Clear all chats</strong>
-                  <span>Permanently remove local conversations.</span>
+                  <span>Remove every local conversation.</span>
                 </div>
 
-                <span>×</span>
+                <button
+                  className="header-control"
+                  type="button"
+                  onClick={() => setClearConfirmOpen(true)}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3 className="settings-title">About</h3>
+
+              <p className="settings-description">
+                {chats.length} chats · {totalMessages} messages ·{" "}
+                {MODEL_NAME}
+              </p>
+
+              <button
+                className="guest-button"
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setAboutOpen(true);
+                }}
+              >
+                About Fades
               </button>
             </div>
           </div>
@@ -2121,7 +1973,7 @@ export default function Home() {
           onMouseDown={() => setAboutOpen(false)}
         >
           <div
-            className="about-modal"
+            className="login-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button
@@ -2133,42 +1985,25 @@ export default function Home() {
               ×
             </button>
 
-            <div className="about-logo">f</div>
+            <div className="modal-logo">f</div>
 
             <h2>Fades AI</h2>
 
-            <p>Your own AI infrastructure, powered by Fades.</p>
+            <p>
+              Running {MODEL_NAME} on your own inference infrastructure.{" "}
+              {chats.length} chats and {totalMessages} messages are stored
+              in this browser.
+            </p>
 
-            <div className="about-stats">
-              <div>
-                <strong>{chats.length}</strong>
-                <span>Chats</span>
-              </div>
+            <button
+              className="guest-button"
+              type="button"
+              onClick={() => setAboutOpen(false)}
+            >
+              Close
+            </button>
 
-              <div>
-                <strong>{totalMessages}</strong>
-                <span>Messages</span>
-              </div>
-
-              <div>
-                <strong>Qwen</strong>
-                <span>Model</span>
-              </div>
-            </div>
-
-            <div className="about-card">
-              <span className="status-dot" />
-
-              <div>
-                <strong>Fades AI online</strong>
-                <span>Local inference infrastructure connected.</span>
-              </div>
-            </div>
-
-            <div className="about-footer">
-              <span>Fades AI</span>
-              <span>v1.0</span>
-            </div>
+            <small className="login-note">Fades AI · v1.0</small>
           </div>
         </div>
       )}
@@ -2180,34 +2015,40 @@ export default function Home() {
           onMouseDown={() => setClearConfirmOpen(false)}
         >
           <div
-            className="confirm-modal"
+            className="login-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="confirm-icon">!</div>
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close"
+              onClick={() => setClearConfirmOpen(false)}
+            >
+              ×
+            </button>
 
             <h2>Clear all chats?</h2>
 
             <p>
-              This will remove all locally stored conversations from this
-              browser.
+              Every conversation stored in this browser will be removed.
+              This cannot be undone.
             </p>
 
-            <div className="confirm-actions">
-              <button
-                type="button"
-                onClick={() => setClearConfirmOpen(false)}
-              >
-                Cancel
-              </button>
+            <button
+              className="auth-submit"
+              type="button"
+              onClick={clearAllChats}
+            >
+              Clear everything
+            </button>
 
-              <button
-                type="button"
-                className="danger-button"
-                onClick={clearAllChats}
-              >
-                Clear everything
-              </button>
-            </div>
+            <button
+              className="guest-button"
+              type="button"
+              onClick={() => setClearConfirmOpen(false)}
+            >
+              Keep my chats
+            </button>
           </div>
         </div>
       )}
@@ -2220,10 +2061,14 @@ export default function Home() {
         onChange={handleImport}
       />
 
-      {toast && (
-        <div className={`toast ${toast.type === "error" ? "error" : ""}`}>
-          <span>{toast.type === "error" ? "!" : "✓"}</span>
-          <strong>{toast.text}</strong>
+      {/* Toasts */}
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((item) => (
+            <div key={item.id} className={`toast ${item.type}`}>
+              {item.text}
+            </div>
+          ))}
         </div>
       )}
     </main>
