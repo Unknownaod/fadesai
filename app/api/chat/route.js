@@ -1,6 +1,6 @@
 const WORKER_URL =
   process.env.FADES_WORKER_URL ||
-  "http://127.0.0.1:3001";
+  "https://ai-01.fades.lol";
 
 const WORKER_KEY =
   process.env.FADES_WORKER_KEY;
