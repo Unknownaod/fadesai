@@ -33,13 +33,13 @@ description:
 number: "05",
 title: "Everything stays together",
 description:
-"Your existing account, conversations, preferences, and Fades experience stay connected.",
+"Your account, conversations, and preferences stay connected to Fades.",
 },
 {
 number: "06",
 title: "More Fades",
 description:
-"A premium experience designed for people who rely on AI more often.",
+"A premium experience designed for people who use AI more often.",
 },
 ];
 
@@ -73,18 +73,29 @@ function handleUpgrade() {
 alert("Stripe checkout is coming soon.");
 }
 
-return ( <main className="pro-page"> <div className="background-grid" /> <div className="background-glow background-glow-top" /> <div className="background-glow background-glow-left" />
+return ( <main className="pro-page"> <div className="background-grid" />
 
+
+  <div className="background-glow background-glow-top" />
+
+  <div className="background-glow background-glow-left" />
 
   {/* NAVIGATION */}
 
   <header className="pro-nav">
     <Link href="/" className="brand">
-      <img src="/logo.png" alt="Fades" />
+      <img
+        src="/logo.png"
+        alt="Fades"
+      />
+
       <span>fades</span>
     </Link>
 
-    <Link href="/" className="back-link">
+    <Link
+      href="/"
+      className="back-link"
+    >
       <span>←</span>
       Back to Fades
     </Link>
@@ -110,30 +121,46 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       Everything you need to get more out of Fades.
     </p>
 
-    {/* BILLING SELECTOR */}
+    {/* BILLING */}
 
     <div className="billing-control">
       <button
         type="button"
-        className={billing === "monthly" ? "active" : ""}
-        onClick={() => setBilling("monthly")}
-        aria-pressed={billing === "monthly"}
+        className={
+          billing === "monthly"
+            ? "active"
+            : ""
+        }
+        onClick={() =>
+          setBilling("monthly")
+        }
+        aria-pressed={
+          billing === "monthly"
+        }
       >
         Monthly
       </button>
 
       <button
         type="button"
-        className={billing === "yearly" ? "active" : ""}
-        onClick={() => setBilling("yearly")}
-        aria-pressed={billing === "yearly"}
+        className={
+          billing === "yearly"
+            ? "active"
+            : ""
+        }
+        onClick={() =>
+          setBilling("yearly")
+        }
+        aria-pressed={
+          billing === "yearly"
+        }
       >
         Yearly
         <span>Save</span>
       </button>
     </div>
 
-    {/* PRICING CARD */}
+    {/* PRICING */}
 
     <div className="pricing-card">
       <div className="pricing-card-topline">
@@ -153,8 +180,8 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
           </h2>
 
           <p>
-            A premium Fades experience for people
-            who use AI every day.
+            A premium Fades experience for
+            people who use AI every day.
           </p>
         </div>
 
@@ -177,8 +204,8 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
           <Check />
 
           <span>
-            Billed ${yearlyPrice.toFixed(2)} USD yearly
-            · Save ${yearlySavings}
+            Billed ${yearlyPrice.toFixed(2)} USD
+            yearly · Save ${yearlySavings}
           </span>
         </div>
       )}
@@ -193,22 +220,30 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
         <div className="included-list">
           <div>
             <Check />
-            <span>Higher AI usage limits</span>
+            <span>
+              Higher AI usage limits
+            </span>
           </div>
 
           <div>
             <Check />
-            <span>Extended conversation context</span>
+            <span>
+              Extended conversation context
+            </span>
           </div>
 
           <div>
             <Check />
-            <span>Priority access</span>
+            <span>
+              Priority access
+            </span>
           </div>
 
           <div>
             <Check />
-            <span>Premium Fades experience</span>
+            <span>
+              Premium Fades experience
+            </span>
           </div>
         </div>
       </div>
@@ -218,9 +253,7 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
         className="primary-button"
         onClick={handleUpgrade}
       >
-        <span>
-          Get Fades Pro
-        </span>
+        <span>Get Fades Pro</span>
 
         <span className="button-arrow">
           ↗
@@ -233,15 +266,29 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
 
     <div className="hero-footnote">
-      <span>No complicated setup</span>
-      <span className="footnote-separator">·</span>
-      <span>One Fades account</span>
-      <span className="footnote-separator">·</span>
-      <span>Upgrade when you're ready</span>
+      <span>
+        No complicated setup
+      </span>
+
+      <span className="footnote-separator">
+        ·
+      </span>
+
+      <span>
+        One Fades account
+      </span>
+
+      <span className="footnote-separator">
+        ·
+      </span>
+
+      <span>
+        Upgrade when you're ready
+      </span>
     </div>
   </section>
 
-  {/* STATEMENT */}
+  {/* WHY PRO */}
 
   <section className="statement-section">
     <div className="section-line" />
@@ -255,13 +302,15 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
         <h2>
           Fades should
           <br />
-          <span>keep up with you.</span>
+          <span>
+            keep up with you.
+          </span>
         </h2>
 
         <p>
-          Pro gives you more room to work without
-          changing the Fades experience you already
-          know.
+          Pro gives you more room to work
+          without changing the Fades
+          experience you already know.
         </p>
       </div>
     </div>
@@ -278,7 +327,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       <h2>
         More space.
         <br />
-        <span>More possibilities.</span>
+        <span>
+          More possibilities.
+        </span>
       </h2>
     </div>
 
@@ -313,7 +364,7 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
   </section>
 
-  {/* COMPARISON */}
+  {/* PLANS */}
 
   <section className="comparison-section">
     <div className="section-heading centered">
@@ -324,12 +375,14 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       <h2>
         Choose your
         <br />
-        <span>Fades experience.</span>
+        <span>
+          Fades experience.
+        </span>
       </h2>
 
       <p>
-        Start free and upgrade whenever you need
-        more from Fades.
+        Start free and upgrade whenever
+        you need more from Fades.
       </p>
     </div>
 
@@ -357,9 +410,7 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       <div className="comparison-row">
         <div>Usage limits</div>
 
-        <div>
-          Standard
-        </div>
+        <div>Standard</div>
 
         <div className="pro-column">
           Higher
@@ -367,11 +418,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       </div>
 
       <div className="comparison-row">
-        <div>Conversation context</div>
-
         <div>
-          Standard
+          Conversation context
         </div>
+
+        <div>Standard</div>
 
         <div className="pro-column">
           Extended
@@ -391,7 +442,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       </div>
 
       <div className="comparison-row">
-        <div>Premium experience</div>
+        <div>
+          Premium experience
+        </div>
 
         <div>
           <Check muted />
@@ -421,12 +474,14 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     <h2>
       Keep going
       <br />
-      <span>with Fades.</span>
+      <span>
+        with Fades.
+      </span>
     </h2>
 
     <p>
-      More room for questions, ideas, projects,
-      and everything in between.
+      More room for questions, ideas,
+      projects, and everything in between.
     </p>
 
     <button
