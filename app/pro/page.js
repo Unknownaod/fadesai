@@ -209,7 +209,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     <div className="section-line" />
 
     <div className="statement-grid">
-      <div className="section-label">THE IDEA</div>
+      <div className="section-label">
+        THE IDEA
+      </div>
 
       <div>
         <h2>
@@ -229,7 +231,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
   <section className="features-section">
     <div className="section-heading">
-      <div className="section-label">PRO FEATURES</div>
+      <div className="section-label">
+        PRO FEATURES
+      </div>
 
       <h2>
         Designed for
@@ -250,10 +254,15 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
           <div className="feature-content">
             <h3>{feature.title}</h3>
-            <p>{feature.description}</p>
+
+            <p>
+              {feature.description}
+            </p>
           </div>
 
-          <div className="feature-mark">↗</div>
+          <div className="feature-mark">
+            ↗
+          </div>
         </article>
       ))}
     </div>
@@ -261,7 +270,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
   <section className="comparison-section">
     <div className="section-heading centered">
-      <div className="section-label">PLANS</div>
+      <div className="section-label">
+        PLANS
+      </div>
 
       <h2>
         Simple by
@@ -279,37 +290,55 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       <div className="comparison-head">
         <div>FEATURE</div>
         <div>FREE</div>
-        <div className="pro-column">PRO</div>
+        <div className="pro-column">
+          PRO
+        </div>
       </div>
 
       <div className="comparison-row">
         <div>AI access</div>
-        <div><Check /></div>
-        <div className="pro-column"><Check /></div>
+        <div>
+          <Check />
+        </div>
+        <div className="pro-column">
+          <Check />
+        </div>
       </div>
 
       <div className="comparison-row">
         <div>Usage limits</div>
         <div>Standard</div>
-        <div className="pro-column">Higher</div>
+        <div className="pro-column">
+          Higher
+        </div>
       </div>
 
       <div className="comparison-row">
         <div>Conversation context</div>
         <div>Standard</div>
-        <div className="pro-column">Extended</div>
+        <div className="pro-column">
+          Extended
+        </div>
       </div>
 
       <div className="comparison-row">
         <div>Priority access</div>
-        <div><Check muted /></div>
-        <div className="pro-column"><Check /></div>
+        <div>
+          <Check muted />
+        </div>
+        <div className="pro-column">
+          <Check />
+        </div>
       </div>
 
       <div className="comparison-row">
         <div>Premium experience</div>
-        <div><Check muted /></div>
-        <div className="pro-column"><Check /></div>
+        <div>
+          <Check muted />
+        </div>
+        <div className="pro-column">
+          <Check />
+        </div>
       </div>
     </div>
   </section>
@@ -319,7 +348,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       <img src="/logo.png" alt="Fades" />
     </div>
 
-    <div className="section-label">FADE INTO MORE</div>
+    <div className="section-label">
+      FADE INTO MORE
+    </div>
 
     <h2>
       Keep going
