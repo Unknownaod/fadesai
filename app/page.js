@@ -352,6 +352,9 @@ export default function Home() {
   const [settings, setSettings] =
     useState(DEFAULT_SETTINGS);
 
+  const [settingsTab, setSettingsTab] =
+    useState("general");
+
   /* Refs */
   const textareaRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -4310,335 +4313,566 @@ export default function Home() {
       {settingsOpen && (
         <div
           className="modal-backdrop"
-          onMouseDown={() =>
-            setSettingsOpen(
-              false
-            )
-          }
+          onMouseDown={() => setSettingsOpen(false)}
         >
           <div
             className="login-modal settings-panel"
-            onMouseDown={(event) =>
-              event.stopPropagation()
-            }
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <button
               className="modal-close"
               type="button"
-              aria-label="Close"
-              onClick={() =>
-                setSettingsOpen(
-                  false
-                )
-              }
+              aria-label="Close settings"
+              onClick={() => setSettingsOpen(false)}
             >
               ×
             </button>
 
-            <div className="settings-section">
-              <h3 className="settings-title">
-                Appearance
-              </h3>
+            <div className="settings-header">
+              <div>
+                <span className="settings-eyebrow">
+                  FADES AI
+                </span>
 
-              <p className="settings-description">
-                How Fades looks on this device.
-              </p>
+                <h2 className="settings-heading">
+                  Settings
+                </h2>
 
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Theme
-                  </strong>
-
-                  <span>
-                    Dark, light, or follow your system.
-                  </span>
-                </div>
-
-                <select
-                  className="settings-select"
-                  value={
-                    settings.theme
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    updateSetting(
-                      "theme",
-                      event.target
-                        .value
-                    )
-                  }
-                >
-                  <option value="dark">
-                    Dark
-                  </option>
-
-                  <option value="light">
-                    Light
-                  </option>
-
-                  <option value="system">
-                    System
-                  </option>
-                </select>
-              </div>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Compact mode
-                  </strong>
-
-                  <span>
-                    Fit more messages on screen.
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  aria-label="Compact mode"
-                  aria-pressed={
-                    settings.compactMode
-                  }
-                  className={`toggle ${
-                    settings.compactMode
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    updateSetting(
-                      "compactMode",
-                      !settings.compactMode
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="settings-section">
-              <h3 className="settings-title">
-                Chat
-              </h3>
-
-              <p className="settings-description">
-                How the composer and messages behave.
-              </p>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Enter to send
-                  </strong>
-
-                  <span>
-                    Otherwise, send with ⌘ + Enter.
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  aria-label="Enter to send"
-                  aria-pressed={
-                    settings.enterToSend
-                  }
-                  className={`toggle ${
-                    settings.enterToSend
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    updateSetting(
-                      "enterToSend",
-                      !settings.enterToSend
-                    )
-                  }
-                />
-              </div>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Message timestamps
-                  </strong>
-
-                  <span>
-                    Show the time beside each message.
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  aria-label="Message timestamps"
-                  aria-pressed={
-                    settings.showTimestamps
-                  }
-                  className={`toggle ${
-                    settings.showTimestamps
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    updateSetting(
-                      "showTimestamps",
-                      !settings.showTimestamps
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="settings-section">
-              <h3 className="settings-title">
-                Data
-              </h3>
-
-              <p className="settings-description">
-                {user
-                  ? "Your chats are synced to your Fades account."
-                  : "Guest chats are temporary and are not stored on this device."}
-              </p>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Export chats
-                  </strong>
-
-                  <span>
-                    Download every conversation as JSON.
-                  </span>
-                </div>
-
-                <button
-                  className="header-control"
-                  type="button"
-                  onClick={
-                    exportAllChats
-                  }
-                >
-                  Export
-                </button>
-              </div>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Import chats
-                  </strong>
-
-                  <span>
-                    Restore a Fades chat export.
-                  </span>
-                </div>
-
-                <button
-                  className="header-control"
-                  type="button"
-                  onClick={() =>
-                    fileInputRef.current?.click()
-                  }
-                >
-                  Import
-                </button>
-              </div>
-
-              <div className="settings-row">
-                <div className="settings-row-label">
-                  <strong>
-                    Clear all chats
-                  </strong>
-
-                  <span>
-                    Remove every conversation.
-                  </span>
-                </div>
-
-                <button
-                  className="header-control"
-                  type="button"
-                  onClick={() =>
-                    setClearConfirmOpen(
-                      true
-                    )
-                  }
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            {/* Account */}
-            {user && (
-              <div className="settings-section">
-                <h3 className="settings-title">
-                  Account
-                </h3>
-
-                <p className="settings-description">
-                  Manage your Fades account.
+                <p className="settings-subheading">
+                  Customize your Fades experience.
                 </p>
+              </div>
 
-                <div className="settings-row">
-                  <div className="settings-row-label">
-                    <strong>
-                      Delete account
-                    </strong>
+              <div className="settings-status">
+                <span className="settings-status-dot" />
+                Saved automatically
+              </div>
+            </div>
 
-                    <span>
-                      Permanently delete your
-                      account, chats, messages,
-                      and sessions.
-                    </span>
+            <div
+              className="settings-tabs"
+              role="tablist"
+              aria-label="Settings sections"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === "general"}
+                className={`settings-tab ${
+                  settingsTab === "general" ? "active" : ""
+                }`}
+                onClick={() => setSettingsTab("general")}
+              >
+                <span className="settings-tab-icon">⚙</span>
+                <span>
+                  <strong>General</strong>
+                  <small>Appearance & chat</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === "data"}
+                className={`settings-tab ${
+                  settingsTab === "data" ? "active" : ""
+                }`}
+                onClick={() => setSettingsTab("data")}
+              >
+                <span className="settings-tab-icon">↕</span>
+                <span>
+                  <strong>Data</strong>
+                  <small>Import & export</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === "account"}
+                className={`settings-tab ${
+                  settingsTab === "account" ? "active" : ""
+                }`}
+                onClick={() => setSettingsTab("account")}
+              >
+                <span className="settings-tab-icon">◎</span>
+                <span>
+                  <strong>Account</strong>
+                  <small>Profile & access</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === "about"}
+                className={`settings-tab ${
+                  settingsTab === "about" ? "active" : ""
+                }`}
+                onClick={() => setSettingsTab("about")}
+              >
+                <span className="settings-tab-icon">i</span>
+                <span>
+                  <strong>About</strong>
+                  <small>Fades information</small>
+                </span>
+              </button>
+            </div>
+
+            <div className="settings-content">
+              {settingsTab === "general" && (
+                <>
+                  <div className="settings-section settings-card">
+                    <div className="settings-card-heading">
+                      <div className="settings-card-icon">◐</div>
+                      <div>
+                        <h3 className="settings-title">
+                          Appearance
+                        </h3>
+                        <p className="settings-description">
+                          Control how Fades looks on this device.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Theme</strong>
+                        <span>
+                          Choose dark, light, or follow your system preference.
+                        </span>
+                      </div>
+
+                      <select
+                        className="settings-select"
+                        value={settings.theme}
+                        onChange={(event) =>
+                          updateSetting("theme", event.target.value)
+                        }
+                      >
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                        <option value="system">System</option>
+                      </select>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Compact mode</strong>
+                        <span>
+                          Reduce spacing so more messages fit on screen.
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Toggle compact mode"
+                        aria-pressed={settings.compactMode}
+                        className={`toggle ${
+                          settings.compactMode ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          updateSetting(
+                            "compactMode",
+                            !settings.compactMode
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="settings-section settings-card">
+                    <div className="settings-card-heading">
+                      <div className="settings-card-icon">✦</div>
+                      <div>
+                        <h3 className="settings-title">
+                          Chat
+                        </h3>
+                        <p className="settings-description">
+                          Change how the composer and messages behave.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Enter to send</strong>
+                        <span>
+                          Press Enter to send, or use Ctrl/⌘ + Enter when disabled.
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Toggle enter to send"
+                        aria-pressed={settings.enterToSend}
+                        className={`toggle ${
+                          settings.enterToSend ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          updateSetting(
+                            "enterToSend",
+                            !settings.enterToSend
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Message timestamps</strong>
+                        <span>
+                          Show the time beside each message.
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Toggle message timestamps"
+                        aria-pressed={settings.showTimestamps}
+                        className={`toggle ${
+                          settings.showTimestamps ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          updateSetting(
+                            "showTimestamps",
+                            !settings.showTimestamps
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="settings-info-banner">
+                    <span className="settings-info-icon">✓</span>
+                    <div>
+                      <strong>Settings are saved automatically</strong>
+                      <span>
+                        Your preferences are stored locally on this device.
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {settingsTab === "data" && (
+                <>
+                  <div className="settings-section settings-card">
+                    <div className="settings-card-heading">
+                      <div className="settings-card-icon">↕</div>
+                      <div>
+                        <h3 className="settings-title">
+                          Your conversations
+                        </h3>
+                        <p className="settings-description">
+                          {user
+                            ? "Your conversations are synced to your Fades account."
+                            : "Guest conversations are temporary and are not stored on this device."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Export all chats</strong>
+                        <span>
+                          Download every conversation as a JSON file.
+                        </span>
+                      </div>
+
+                      <button
+                        className="settings-action-button"
+                        type="button"
+                        onClick={exportAllChats}
+                      >
+                        Export
+                      </button>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Import chats</strong>
+                        <span>
+                          Restore conversations from a Fades JSON export.
+                        </span>
+                      </div>
+
+                      <button
+                        className="settings-action-button"
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Import
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-section settings-card settings-danger-card">
+                    <div className="settings-card-heading">
+                      <div className="settings-card-icon danger">×</div>
+                      <div>
+                        <h3 className="settings-title">
+                          Clear conversations
+                        </h3>
+                        <p className="settings-description">
+                          Remove every conversation from your current Fades session.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Clear all chats</strong>
+                        <span>
+                          This cannot be undone.
+                        </span>
+                      </div>
+
+                      <button
+                        className="settings-action-button danger"
+                        type="button"
+                        onClick={() => setClearConfirmOpen(true)}
+                      >
+                        Clear chats
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {settingsTab === "account" && (
+                <>
+                  {user ? (
+                    <>
+                      <div className="settings-section settings-card">
+                        <div className="account-summary">
+                          <div className="settings-account-avatar">
+                            {avatarLetter}
+                          </div>
+
+                          <div className="account-summary-info">
+                            <div className="account-name">
+                              {user.displayName || user.username}
+                              {user.plan === "pro" && <ProBadge />}
+                            </div>
+
+                            <div className="account-email">
+                              {user.email}
+                            </div>
+
+                            <span className="account-status">
+                              <span />
+                              Signed in
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="settings-section settings-card">
+                        <div className="settings-card-heading">
+                          <div className="settings-card-icon">◎</div>
+                          <div>
+                            <h3 className="settings-title">
+                              Account
+                            </h3>
+                            <p className="settings-description">
+                              Manage your Fades account and subscription.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="settings-row">
+                          <div className="settings-row-label">
+                            <strong>Fades Pro</strong>
+                            <span>
+                              {user.plan === "pro"
+                                ? "Manage your Fades Pro subscription."
+                                : "Explore Fades Pro and available features."}
+                            </span>
+                          </div>
+
+                          <button
+                            className="settings-action-button"
+                            type="button"
+                            onClick={() => {
+                              setSettingsOpen(false);
+                              window.location.href = "/pro";
+                            }}
+                          >
+                            {user.plan === "pro" ? "Manage" : "View Pro"}
+                          </button>
+                        </div>
+
+                        <div className="settings-row">
+                          <div className="settings-row-label">
+                            <strong>Sign out</strong>
+                            <span>
+                              End your current Fades session.
+                            </span>
+                          </div>
+
+                          <button
+                            className="settings-action-button"
+                            type="button"
+                            onClick={logout}
+                          >
+                            Sign out
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="settings-section settings-card settings-danger-card">
+                        <div className="settings-card-heading">
+                          <div className="settings-card-icon danger">!</div>
+                          <div>
+                            <h3 className="settings-title">
+                              Delete account
+                            </h3>
+                            <p className="settings-description">
+                              Permanently delete your account, conversations,
+                              messages, and active sessions.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="settings-row">
+                          <div className="settings-row-label">
+                            <strong>Delete my Fades account</strong>
+                            <span>
+                              This action cannot be undone.
+                            </span>
+                          </div>
+
+                          <button
+                            className="settings-action-button danger"
+                            type="button"
+                            disabled={deleteAccountSubmitting}
+                            onClick={() => {
+                              setDeleteAccountConfirmOpen(true);
+                              setSettingsOpen(false);
+                            }}
+                          >
+                            Delete account
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="settings-empty-card">
+                      <div className="settings-empty-icon">◎</div>
+                      <h3>You're using Fades as a guest</h3>
+                      <p>
+                        Sign in or create an account to sync conversations,
+                        manage your account, and access account features.
+                      </p>
+
+                      <button
+                        className="settings-action-button primary"
+                        type="button"
+                        onClick={() => {
+                          setSettingsOpen(false);
+                          openAuth("login");
+                        }}
+                      >
+                        Sign in
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {settingsTab === "about" && (
+                <>
+                  <div className="settings-about-hero">
+                    <div className="settings-about-logo">
+                      <img
+                        src={logoImage.src}
+                        alt="Fades"
+                        className="settings-about-logo-img"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="settings-eyebrow">
+                        FADES AI
+                      </span>
+                      <h3>Simple AI. Built for you.</h3>
+                      <p>
+                        Fades AI runs {MODEL_NAME} on its own inference
+                        infrastructure.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="settings-stats">
+                    <div className="settings-stat">
+                      <strong>{chats.length}</strong>
+                      <span>Chats</span>
+                    </div>
+
+                    <div className="settings-stat">
+                      <strong>{totalMessages}</strong>
+                      <span>Messages</span>
+                    </div>
+
+                    <div className="settings-stat">
+                      <strong>{MODEL_NAME}</strong>
+                      <span>Model</span>
+                    </div>
+                  </div>
+
+                  <div className="settings-section settings-card">
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Fades AI</strong>
+                        <span>
+                          {user
+                            ? "Your conversations are synced to your Fades account."
+                            : "Guest conversations are temporary and are not saved."}
+                        </span>
+                      </div>
+
+                      <span className="settings-version">
+                        v1.0
+                      </span>
+                    </div>
+
+                    <div className="settings-row">
+                      <div className="settings-row-label">
+                        <strong>Model</strong>
+                        <span>
+                          Current model used by the Fades chat experience.
+                        </span>
+                      </div>
+
+                      <span className="settings-model-pill">
+                        {MODEL_NAME}
+                      </span>
+                    </div>
                   </div>
 
                   <button
-                    className="header-control"
+                    className="settings-about-button"
                     type="button"
-                    disabled={
-                      deleteAccountSubmitting
-                    }
                     onClick={() => {
-                      setDeleteAccountConfirmOpen(
-                        true
-                      );
-
-                      setSettingsOpen(
-                        false
-                      );
+                      setSettingsOpen(false);
+                      setAboutOpen(true);
                     }}
                   >
-                    Delete
+                    Open full About page
+                    <span>→</span>
                   </button>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
 
-            <div className="settings-section">
-              <h3 className="settings-title">
-                About
-              </h3>
-
-              <p className="settings-description">
-                {chats.length} chats ·{" "}
-                {totalMessages} messages ·{" "}
-                {MODEL_NAME}
-              </p>
-
+            <div className="settings-footer">
+              <span>Fades AI · Preferences</span>
               <button
-                className="guest-button"
                 type="button"
-                onClick={() => {
-                  setSettingsOpen(
-                    false
-                  );
-
-                  setAboutOpen(
-                    true
-                  );
-                }}
+                onClick={() => setSettingsOpen(false)}
               >
-                About Fades
+                Done
               </button>
             </div>
           </div>
