@@ -3508,21 +3508,26 @@ export default function Home() {
                         : ""
                     }`}
                   >
-                    <div className="message-label">
-                      {item.role ===
-                      "user"
-                        ? user?.displayName ||
-                          user?.username ||
-                          "You"
-                        : "Fades"}
+<div className="message-label">
+  {item.role === "user" ? (
+    <>
+      {user?.displayName ||
+        user?.username ||
+        "You"}
 
-                      {settings.showTimestamps &&
-                      item.createdAt
-                        ? ` · ${formatTime(
-                            item.createdAt
-                          )}`
-                        : ""}
-                    </div>
+      {user?.plan === "pro" && (
+        <span className="pro-badge">PRO</span>
+      )}
+    </>
+  ) : (
+    "Fades"
+  )}
+
+  {settings.showTimestamps &&
+  item.createdAt
+    ? ` · ${formatTime(item.createdAt)}`
+    : ""}
+</div>
 
                     {item.role ===
                       "assistant" &&
