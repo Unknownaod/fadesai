@@ -3367,7 +3367,8 @@ a {
 }
 
 /* =========================================================
-   SETTINGS TABS — ADDITIVE STYLES
+   FADES SETTINGS
+   ADDITIVE / SCOPED STYLES
    ========================================================= */
 
 /* =========================================================
@@ -3381,13 +3382,14 @@ a {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 /* =========================================================
-   SETTINGS HEADER
+   HEADER
    ========================================================= */
 
-.settings-header {
+.settings-panel .settings-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3395,7 +3397,8 @@ a {
   padding: 4px 4px 22px;
 }
 
-.settings-eyebrow {
+.settings-panel .settings-eyebrow {
+  display: block;
   margin: 0 0 6px;
   font-size: 11px;
   font-weight: 700;
@@ -3404,7 +3407,7 @@ a {
   opacity: 0.55;
 }
 
-.settings-heading {
+.settings-panel .settings-heading {
   margin: 0;
   font-size: 25px;
   line-height: 1.2;
@@ -3412,7 +3415,7 @@ a {
   letter-spacing: -0.025em;
 }
 
-.settings-subheading {
+.settings-panel .settings-subheading {
   margin: 7px 0 0;
   max-width: 620px;
   font-size: 13px;
@@ -3420,86 +3423,112 @@ a {
   opacity: 0.58;
 }
 
-.settings-status {
+.settings-panel .settings-status {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
+
   margin-top: 5px;
   padding: 7px 10px;
+
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
+
   font-size: 11px;
   font-weight: 600;
+
   opacity: 0.75;
 }
 
-.settings-status-dot {
+.settings-panel .settings-status-dot {
+  display: block;
+
   width: 6px;
   height: 6px;
   flex: 0 0 6px;
+
   border-radius: 50%;
+
   background: currentColor;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
 }
 
 /* =========================================================
-   SETTINGS TABS
-   IMPORTANT:
-   The typography of the tab text is intentionally NOT
-   changed here. It inherits your existing site styles.
+   TABS
    ========================================================= */
 
-.settings-tabs {
+/*
+   IMPORTANT:
+
+   Nothing below changes the typography of the text inside
+   the tabs.
+
+   Existing <strong>, <small>, font-size, font-weight,
+   line-height, etc. are intentionally left alone.
+*/
+
+.settings-panel .settings-tabs {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+
   gap: 5px;
+
   width: 100%;
+
   padding: 5px;
-  margin-bottom: 18px;
+  margin: 0 0 18px;
+
   overflow-x: auto;
+  overflow-y: hidden;
+
   scrollbar-width: none;
 
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 13px;
+
   background: rgba(255, 255, 255, 0.025);
 
   box-sizing: border-box;
 }
 
-.settings-tabs::-webkit-scrollbar {
+.settings-panel .settings-tabs::-webkit-scrollbar {
   display: none;
 }
 
-.settings-tab {
+/*
+   Only the actual button is styled.
+*/
+
+.settings-panel .settings-tabs > .settings-tab {
   position: relative;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
-  gap: 8px;
-
   flex: 1 1 0;
+
   min-width: 105px;
   min-height: 38px;
 
   padding: 8px 13px;
 
+  margin: 0;
+
   border: 0;
   border-radius: 9px;
 
   background: transparent;
+
   color: inherit;
 
   /*
-   * Do not set font-size, font-weight, line-height,
-   * font-family, or text-transform here.
-   *
-   * This prevents the Settings redesign from changing
-   * the appearance of the actual tab text.
-   */
+     Preserve whatever font styling the original site gives
+     the button/text.
+  */
   font: inherit;
+
+  text-align: inherit;
 
   white-space: nowrap;
 
@@ -3513,22 +3542,31 @@ a {
     transform 0.18s ease;
 }
 
-.settings-tab:hover {
+.settings-panel .settings-tabs > .settings-tab:hover {
   opacity: 0.85;
   background: rgba(255, 255, 255, 0.035);
 }
 
-.settings-tab:active {
+.settings-panel .settings-tabs > .settings-tab:active {
   transform: scale(0.985);
 }
 
-.settings-tab.active,
-.settings-tab[aria-selected="true"] {
+.settings-panel .settings-tabs > .settings-tab.active,
+.settings-panel .settings-tabs > .settings-tab[aria-selected="true"] {
   opacity: 1;
   background: rgba(255, 255, 255, 0.075);
 }
 
-.settings-tab-icon {
+/*
+   ONLY position the icon.
+
+   Do NOT style the span containing:
+   General / Appearance & chat
+   Data / Import & export
+   etc.
+*/
+
+.settings-panel .settings-tab-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3537,37 +3575,29 @@ a {
   height: 16px;
   flex: 0 0 16px;
 
+  margin: 0;
+
   opacity: 0.8;
 }
 
-/*
- * The following intentionally only controls layout.
- * It does NOT change the typography of the tab labels.
- */
-
-.settings-tab > span:not(.settings-tab-icon) {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
 /* =========================================================
-   SETTINGS CONTENT
+   CONTENT
    ========================================================= */
 
-.settings-content {
+.settings-panel .settings-content {
   display: flex;
   flex-direction: column;
+
   gap: 14px;
 
   min-height: 0;
 }
 
 /* =========================================================
-   SETTINGS CARDS
+   CARDS
    ========================================================= */
 
-.settings-card {
+.settings-panel .settings-card {
   width: 100%;
 
   padding: 18px;
@@ -3580,16 +3610,16 @@ a {
   box-sizing: border-box;
 }
 
-.settings-card-heading {
+.settings-panel .settings-card-heading {
   display: flex;
   align-items: center;
 
   gap: 10px;
 
-  margin-bottom: 14px;
+  margin: 0 0 14px;
 }
 
-.settings-card-icon {
+.settings-panel .settings-card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3598,6 +3628,8 @@ a {
   height: 32px;
   flex: 0 0 32px;
 
+  margin: 0;
+
   border-radius: 9px;
 
   background: rgba(255, 255, 255, 0.055);
@@ -3605,16 +3637,17 @@ a {
   opacity: 0.85;
 }
 
-.settings-title {
+.settings-panel .settings-title {
   margin: 0;
 
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.3;
 
   letter-spacing: -0.01em;
 }
 
-.settings-description {
+.settings-panel .settings-description {
   margin: 3px 0 0;
 
   font-size: 11px;
@@ -3624,10 +3657,10 @@ a {
 }
 
 /* =========================================================
-   SETTINGS ROWS
+   ROWS
    ========================================================= */
 
-.settings-row {
+.settings-panel .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3639,26 +3672,27 @@ a {
   padding: 10px 0;
 }
 
-.settings-row + .settings-row {
+.settings-panel .settings-row + .settings-row {
   border-top: 1px solid rgba(255, 255, 255, 0.055);
 }
 
-.settings-row-label {
+.settings-panel .settings-row-label {
   min-width: 0;
   flex: 1;
 }
 
 /*
- * These styles only apply inside a Settings row.
- * They do not affect the tab text.
- */
+   These ONLY affect text inside settings-row-label.
+   They cannot affect the tabs.
+*/
 
-.settings-row-label > div:first-child {
+.settings-panel .settings-row-label > div:first-child {
   font-size: 12px;
   font-weight: 650;
+  line-height: 1.35;
 }
 
-.settings-row-label > div:last-child {
+.settings-panel .settings-row-label > div:last-child {
   margin-top: 3px;
 
   font-size: 11px;
@@ -3671,7 +3705,7 @@ a {
    SELECT
    ========================================================= */
 
-.settings-select {
+.settings-panel .settings-select {
   min-width: 145px;
   height: 36px;
 
@@ -3690,16 +3724,18 @@ a {
 
   cursor: pointer;
 
+  box-sizing: border-box;
+
   transition:
     border-color 0.18s ease,
     background 0.18s ease;
 }
 
-.settings-select:hover {
+.settings-panel .settings-select:hover {
   background: rgba(255, 255, 255, 0.065);
 }
 
-.settings-select:focus {
+.settings-panel .settings-select:focus {
   border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -3707,7 +3743,7 @@ a {
    ACTION BUTTONS
    ========================================================= */
 
-.settings-action-button {
+.settings-panel .settings-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3730,27 +3766,29 @@ a {
 
   cursor: pointer;
 
+  box-sizing: border-box;
+
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
     transform 0.18s ease;
 }
 
-.settings-action-button:hover {
+.settings-panel .settings-action-button:hover {
   background: rgba(255, 255, 255, 0.075);
   border-color: rgba(255, 255, 255, 0.13);
 }
 
-.settings-action-button:active {
+.settings-panel .settings-action-button:active {
   transform: scale(0.98);
 }
 
-.settings-action-button:disabled {
+.settings-panel .settings-action-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.settings-action-button svg {
+.settings-panel .settings-action-button svg {
   width: 14px;
   height: 14px;
 }
@@ -3759,7 +3797,7 @@ a {
    INFO BANNER
    ========================================================= */
 
-.settings-info-banner {
+.settings-panel .settings-info-banner {
   display: flex;
   align-items: flex-start;
 
@@ -3774,15 +3812,18 @@ a {
 
   font-size: 11px;
   line-height: 1.5;
+
+  box-sizing: border-box;
 }
 
-.settings-info-banner > div {
+.settings-panel .settings-info-banner > div {
   display: flex;
   flex-direction: column;
+
   gap: 3px;
 }
 
-.settings-info-icon {
+.settings-panel .settings-info-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3797,23 +3838,23 @@ a {
 }
 
 /* =========================================================
-   DANGER / ACCOUNT
+   DANGER
    ========================================================= */
 
-.settings-danger-card {
+.settings-panel .settings-danger-card {
   border-color: rgba(255, 80, 80, 0.16);
   background: rgba(255, 50, 50, 0.025);
 }
 
-.settings-danger-card .settings-card-icon {
+.settings-panel .settings-danger-card .settings-card-icon {
   background: rgba(255, 70, 70, 0.08);
 }
 
 /* =========================================================
-   ACCOUNT SUMMARY
+   ACCOUNT
    ========================================================= */
 
-.account-summary {
+.settings-panel .account-summary {
   display: flex;
   align-items: center;
 
@@ -3822,7 +3863,7 @@ a {
   padding: 4px 0 16px;
 }
 
-.settings-account-avatar {
+.settings-panel .settings-account-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3841,19 +3882,19 @@ a {
   overflow: hidden;
 }
 
-.settings-account-avatar img {
+.settings-panel .settings-account-avatar img {
   width: 100%;
   height: 100%;
 
   object-fit: cover;
 }
 
-.account-summary-info {
+.settings-panel .account-summary-info {
   min-width: 0;
   flex: 1;
 }
 
-.account-name {
+.settings-panel .account-name {
   display: flex;
   align-items: center;
 
@@ -3863,7 +3904,7 @@ a {
   font-weight: 700;
 }
 
-.account-email {
+.settings-panel .account-email {
   margin-top: 3px;
 
   overflow: hidden;
@@ -3875,7 +3916,7 @@ a {
   opacity: 0.5;
 }
 
-.account-status {
+.settings-panel .account-status {
   display: inline-flex;
   align-items: center;
 
@@ -3890,10 +3931,10 @@ a {
 }
 
 /* =========================================================
-   EMPTY ACCOUNT STATE
+   EMPTY ACCOUNT
    ========================================================= */
 
-.settings-empty-card {
+.settings-panel .settings-empty-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3913,7 +3954,7 @@ a {
   box-sizing: border-box;
 }
 
-.settings-empty-icon {
+.settings-panel .settings-empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3930,14 +3971,14 @@ a {
   opacity: 0.75;
 }
 
-.settings-empty-card h3 {
+.settings-panel .settings-empty-card h3 {
   margin: 0;
 
   font-size: 13px;
   font-weight: 700;
 }
 
-.settings-empty-card p {
+.settings-panel .settings-empty-card p {
   max-width: 390px;
 
   margin: 6px 0 15px;
@@ -3952,7 +3993,7 @@ a {
    ABOUT
    ========================================================= */
 
-.settings-about-hero {
+.settings-panel .settings-about-hero {
   display: flex;
   align-items: center;
 
@@ -3961,7 +4002,7 @@ a {
   padding: 4px 0 20px;
 }
 
-.settings-about-logo {
+.settings-panel .settings-about-logo {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3977,7 +4018,7 @@ a {
   overflow: hidden;
 }
 
-.settings-about-logo-img {
+.settings-panel .settings-about-logo-img {
   width: 100%;
   height: 100%;
 
@@ -3988,16 +4029,17 @@ a {
   box-sizing: border-box;
 }
 
-.settings-about-hero h3 {
+.settings-panel .settings-about-hero h3 {
   margin: 0;
 
   font-size: 17px;
   font-weight: 750;
+  line-height: 1.25;
 
   letter-spacing: -0.02em;
 }
 
-.settings-about-hero p {
+.settings-panel .settings-about-hero p {
   margin: 4px 0 0;
 
   font-size: 11px;
@@ -4010,7 +4052,7 @@ a {
    ABOUT STATS
    ========================================================= */
 
-.settings-stats {
+.settings-panel .settings-stats {
   display: grid;
 
   grid-template-columns: repeat(3, 1fr);
@@ -4020,18 +4062,21 @@ a {
   margin-top: 5px;
 }
 
-.settings-stat {
+.settings-panel .settings-stat {
   padding: 13px;
 
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 11px;
 
   background: rgba(255, 255, 255, 0.025);
+
+  box-sizing: border-box;
 }
 
-.settings-stat-value {
+.settings-panel .settings-stat-value {
   font-size: 16px;
   font-weight: 750;
+  line-height: 1.25;
 
   letter-spacing: -0.02em;
 
@@ -4039,7 +4084,7 @@ a {
   text-overflow: ellipsis;
 }
 
-.settings-stat-label {
+.settings-panel .settings-stat-label {
   margin-top: 3px;
 
   font-size: 10px;
@@ -4047,7 +4092,7 @@ a {
   opacity: 0.45;
 }
 
-.settings-version {
+.settings-panel .settings-version {
   display: inline-flex;
   align-items: center;
 
@@ -4068,7 +4113,7 @@ a {
   box-sizing: border-box;
 }
 
-.settings-model-pill {
+.settings-panel .settings-model-pill {
   display: inline-flex;
   align-items: center;
 
@@ -4091,7 +4136,7 @@ a {
    ABOUT BUTTON
    ========================================================= */
 
-.settings-about-button {
+.settings-panel .settings-about-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4117,26 +4162,28 @@ a {
 
   cursor: pointer;
 
+  box-sizing: border-box;
+
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
     transform 0.18s ease;
 }
 
-.settings-about-button:hover {
+.settings-panel .settings-about-button:hover {
   background: rgba(255, 255, 255, 0.065);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.settings-about-button:active {
+.settings-panel .settings-about-button:active {
   transform: scale(0.99);
 }
 
 /* =========================================================
-   SETTINGS FOOTER
+   FOOTER
    ========================================================= */
 
-.settings-footer {
+.settings-panel .settings-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4146,12 +4193,12 @@ a {
   padding: 18px 4px 2px;
 }
 
-.settings-footer > div:first-child {
+.settings-panel .settings-footer > div {
   font-size: 10px;
   opacity: 0.4;
 }
 
-.settings-footer button {
+.settings-panel .settings-footer button {
   min-width: 75px;
 }
 
@@ -4159,75 +4206,75 @@ a {
    LIGHT MODE
    ========================================================= */
 
-.light .settings-tabs,
-.light .settings-card,
-.light .settings-empty-card,
-.light .settings-stat,
-.light .settings-info-banner {
+.light .settings-panel .settings-tabs,
+.light .settings-panel .settings-card,
+.light .settings-panel .settings-empty-card,
+.light .settings-panel .settings-stat,
+.light .settings-panel .settings-info-banner {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.018);
 }
 
-.light .settings-tab:hover {
+.light .settings-panel .settings-tab:hover {
   background: rgba(0, 0, 0, 0.035);
 }
 
-.light .settings-tab.active,
-.light .settings-tab[aria-selected="true"] {
+.light .settings-panel .settings-tab.active,
+.light .settings-panel .settings-tab[aria-selected="true"] {
   background: rgba(0, 0, 0, 0.055);
 }
 
-.light .settings-action-button,
-.light .settings-about-button,
-.light .settings-select {
+.light .settings-panel .settings-action-button,
+.light .settings-panel .settings-about-button,
+.light .settings-panel .settings-select {
   border-color: rgba(0, 0, 0, 0.09);
   background: rgba(0, 0, 0, 0.025);
 }
 
-.light .settings-action-button:hover,
-.light .settings-about-button:hover {
+.light .settings-panel .settings-action-button:hover,
+.light .settings-panel .settings-about-button:hover {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.light .settings-row + .settings-row {
+.light .settings-panel .settings-row + .settings-row {
   border-color: rgba(0, 0, 0, 0.06);
 }
 
-.light .settings-status {
+.light .settings-panel .settings-status {
   border-color: rgba(0, 0, 0, 0.08);
 }
 
-.light .settings-card-icon,
-.light .settings-empty-icon,
-.light .settings-about-logo {
+.light .settings-panel .settings-card-icon,
+.light .settings-panel .settings-empty-icon,
+.light .settings-panel .settings-about-logo {
   background: rgba(0, 0, 0, 0.045);
 }
 
-.light .settings-model-pill,
-.light .settings-version {
+.light .settings-panel .settings-model-pill,
+.light .settings-panel .settings-version {
   border-color: rgba(0, 0, 0, 0.07);
   background: rgba(0, 0, 0, 0.025);
 }
 
 /* =========================================================
-   RESPONSIVE — TABLET / SMALL DESKTOP
+   RESPONSIVE
    ========================================================= */
 
 @media (max-width: 700px) {
-  .settings-header {
+  .settings-panel .settings-header {
     flex-direction: column;
     gap: 12px;
   }
 
-  .settings-status {
+  .settings-panel .settings-status {
     margin-top: 0;
   }
 
-  .settings-tab {
+  .settings-panel .settings-tab {
     flex: 0 0 auto;
   }
 
-  .settings-row {
+  .settings-panel .settings-row {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
@@ -4235,62 +4282,54 @@ a {
     padding: 13px 0;
   }
 
-  .settings-select,
-  .settings-action-button {
+  .settings-panel .settings-select,
+  .settings-panel .settings-action-button {
     width: 100%;
   }
 
-  .settings-stats {
+  .settings-panel .settings-stats {
     grid-template-columns: 1fr;
   }
 
-  .settings-footer {
+  .settings-panel .settings-footer {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .settings-footer button {
+  .settings-panel .settings-footer button {
     width: 100%;
   }
 }
 
-/* =========================================================
-   RESPONSIVE — MOBILE
-   ========================================================= */
-
 @media (max-width: 480px) {
-  .settings-card {
+  .settings-panel .settings-card {
     padding: 15px;
     border-radius: 13px;
   }
 
-  .settings-heading {
+  .settings-panel .settings-heading {
     font-size: 22px;
   }
 
-  .settings-tabs {
+  .settings-panel .settings-tabs {
     border-radius: 11px;
   }
 
-  .settings-tab {
+  .settings-panel .settings-tab {
     min-width: 94px;
     padding: 8px 10px;
   }
 
-  /*
-   * Hide only the decorative icons on small screens.
-   * The tab text itself is untouched.
-   */
-  .settings-tab-icon {
+  .settings-panel .settings-tab-icon {
     display: none;
   }
 
-  .account-summary {
+  .settings-panel .account-summary {
     align-items: flex-start;
     flex-wrap: wrap;
   }
 
-  .settings-about-hero {
+  .settings-panel .settings-about-hero {
     align-items: flex-start;
   }
 }
