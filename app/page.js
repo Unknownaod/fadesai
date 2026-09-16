@@ -51,6 +51,14 @@ const SUGGESTIONS = [
   },
 ];
 
+function ProBadge() {
+  return (
+    <span className="pro-badge" aria-label="Fades Pro">
+      PRO
+    </span>
+  );
+}
+
 /* ---------------------------------------------------------------- */
 /* Helpers                                                           */
 /* ---------------------------------------------------------------- */
