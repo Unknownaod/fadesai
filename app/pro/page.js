@@ -111,7 +111,7 @@ export default function ProPage() {
       {/* NAVIGATION */}
 
       <header className="pro-nav">
-        <Link href="/" className="brand" aria-label="Fades home">
+        <Link href="/" className="brand-name" aria-label="Fades home">
           <span className="brand-mark">
             <img src="/logo.png" alt="" />
           </span>
