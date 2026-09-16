@@ -252,6 +252,18 @@ export default function Home() {
     clearConfirmOpen,
     setClearConfirmOpen,
   ] = useState(false);
+
+  /* Delete account confirmation */
+  const [
+    deleteAccountConfirmOpen,
+    setDeleteAccountConfirmOpen,
+  ] = useState(false);
+
+  const [
+    deleteAccountSubmitting,
+    setDeleteAccountSubmitting,
+  ] = useState(false);
+
   const [toasts, setToasts] = useState([]);
 
   /* Auth state */
@@ -279,9 +291,7 @@ export default function Home() {
     setAuthDisplayName,
   ] = useState("");
 
-  /*
-   * Email verification state
-   */
+  /* Email verification state */
   const [
     verificationOpen,
     setVerificationOpen,
@@ -1826,6 +1836,114 @@ export default function Home() {
     );
   }
 
+  /* -------------------------------------------------------------- */
+  /* Delete account                                                  */
+  /* -------------------------------------------------------------- */
+
+  const deleteAccount =
+    useCallback(async () => {
+      if (
+        !user ||
+        deleteAccountSubmitting
+      ) {
+        return;
+      }
+
+      setDeleteAccountSubmitting(
+        true
+      );
+
+      /*
+       * Stop any active AI generation.
+       */
+      abortControllerRef.current?.abort();
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/auth/account`,
+            {
+              method: "DELETE",
+              credentials:
+                "include",
+              cache: "no-store",
+            }
+          );
+
+        const data =
+          await response
+            .json()
+            .catch(() => null);
+
+        if (
+          !response.ok ||
+          !data?.success
+        ) {
+          throw new Error(
+            data?.error ||
+              data?.message ||
+              "Unable to delete your account."
+          );
+        }
+
+        /*
+         * Completely reset the frontend.
+         */
+        setUser(null);
+
+        setChats([]);
+        setMessages([]);
+        setActiveChatId(null);
+
+        setMessage("");
+        setSearch("");
+
+        setEditingChatId(null);
+        setEditingTitle("");
+
+        setProfileOpen(false);
+        setSettingsOpen(false);
+        setDeleteAccountConfirmOpen(
+          false
+        );
+
+        setLoading(false);
+
+        setCloudChatsLoading(
+          false
+        );
+
+        showToast(
+          "Your Fades account has been deleted."
+        );
+      } catch (error) {
+        console.error(
+          "Account deletion failed:",
+          error
+        );
+
+        showToast(
+          error?.message ||
+            "Unable to delete your account.",
+          "error"
+        );
+      } finally {
+        setDeleteAccountSubmitting(
+          false
+        );
+
+        abortControllerRef.current =
+          null;
+
+        focusComposer();
+      }
+    }, [
+      user,
+      deleteAccountSubmitting,
+      showToast,
+      focusComposer,
+    ]);
+
   const copyText =
     useCallback(
       async (content) => {
@@ -2214,9 +2332,6 @@ export default function Home() {
       /*
        * Signup intentionally does NOT
        * create a session.
-       *
-       * The backend sends the verification
-       * code and asks us to verify it first.
        */
       if (
         authMode ===
@@ -2365,10 +2480,6 @@ export default function Home() {
         );
       }
 
-      /*
-       * Backend creates the session after
-       * successful verification.
-       */
       setUser(data.user);
 
       setVerificationOpen(
@@ -2396,10 +2507,6 @@ export default function Home() {
         error?.message ||
         "Unable to verify your email.";
 
-      /*
-       * Friendly handling for common
-       * backend verification errors.
-       */
       if (
         message ===
         "VERIFICATION_CODE_EXPIRED"
@@ -2661,10 +2768,14 @@ export default function Home() {
         if (
           !authSubmitting &&
           !verificationSubmitting &&
-          !resendSubmitting
+          !resendSubmitting &&
+          !deleteAccountSubmitting
         ) {
           setAuthOpen(false);
           setVerificationOpen(
+            false
+          );
+          setDeleteAccountConfirmOpen(
             false
           );
         }
@@ -2685,6 +2796,7 @@ export default function Home() {
     authSubmitting,
     verificationSubmitting,
     resendSubmitting,
+    deleteAccountSubmitting,
     createChat,
   ]);
 
@@ -4152,7 +4264,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Settings */}
+      {/* ---------------------------------------------------------- */}
+      {/* Settings                                                     */}
+      {/* ---------------------------------------------------------- */}
+
       {settingsOpen && (
         <div
           className="modal-backdrop"
@@ -4414,6 +4529,52 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Account */}
+            {user && (
+              <div className="settings-section">
+                <h3 className="settings-title">
+                  Account
+                </h3>
+
+                <p className="settings-description">
+                  Manage your Fades account.
+                </p>
+
+                <div className="settings-row">
+                  <div className="settings-row-label">
+                    <strong>
+                      Delete account
+                    </strong>
+
+                    <span>
+                      Permanently delete your
+                      account, chats, messages,
+                      and sessions.
+                    </span>
+                  </div>
+
+                  <button
+                    className="header-control"
+                    type="button"
+                    disabled={
+                      deleteAccountSubmitting
+                    }
+                    onClick={() => {
+                      setDeleteAccountConfirmOpen(
+                        true
+                      );
+
+                      setSettingsOpen(
+                        false
+                      );
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="settings-section">
               <h3 className="settings-title">
                 About
@@ -4445,7 +4606,105 @@ export default function Home() {
         </div>
       )}
 
-      {/* About */}
+      {/* ---------------------------------------------------------- */}
+      {/* Delete Account Confirmation                                  */}
+      {/* ---------------------------------------------------------- */}
+
+      {deleteAccountConfirmOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => {
+            if (
+              !deleteAccountSubmitting
+            ) {
+              setDeleteAccountConfirmOpen(
+                false
+              );
+            }
+          }}
+        >
+          <div
+            className="login-modal"
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close"
+              disabled={
+                deleteAccountSubmitting
+              }
+              onClick={() =>
+                setDeleteAccountConfirmOpen(
+                  false
+                )
+              }
+            >
+              ×
+            </button>
+
+            <div className="modal-logo">
+              f
+            </div>
+
+            <h2>
+              Delete your account?
+            </h2>
+
+            <p>
+              This permanently deletes
+              your Fades account,
+              conversations, messages,
+              and active sessions.
+              This action cannot be
+              undone.
+            </p>
+
+            <button
+              className="auth-submit"
+              type="button"
+              disabled={
+                deleteAccountSubmitting
+              }
+              onClick={
+                deleteAccount
+              }
+            >
+              {deleteAccountSubmitting
+                ? "Deleting account..."
+                : "Delete Account"}
+            </button>
+
+            <button
+              className="guest-button"
+              type="button"
+              disabled={
+                deleteAccountSubmitting
+              }
+              onClick={() =>
+                setDeleteAccountConfirmOpen(
+                  false
+                )
+              }
+            >
+              Keep my account
+            </button>
+
+            <small className="login-note">
+              This permanently removes
+              your account and associated
+              Fades data.
+            </small>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------- */}
+      {/* About                                                        */}
+      {/* ---------------------------------------------------------- */}
+
       {aboutOpen && (
         <div
           className="modal-backdrop"
@@ -4511,7 +4770,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Clear confirmation */}
+      {/* ---------------------------------------------------------- */}
+      {/* Clear confirmation                                          */}
+      {/* ---------------------------------------------------------- */}
+
       {clearConfirmOpen && (
         <div
           className="modal-backdrop"
