@@ -3178,3 +3178,56 @@ a {
   }
 }
 
+
+/* =========================================================
+   PRO BADGE
+========================================================= */
+
+.pro-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-left: 6px;
+  padding: 2px 5px;
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.045)
+    );
+
+  color: #ffffff;
+
+  font-size: 8px;
+  font-weight: 700;
+
+  line-height: 1;
+  letter-spacing: 0.06em;
+
+  vertical-align: middle;
+
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.04);
+
+  animation: pro-glow 3s ease-in-out infinite;
+}
+
+@keyframes pro-glow {
+  0%,
+  100% {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 8px rgba(255, 255, 255, 0.03);
+  }
+
+  50% {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow:
+      0 0 14px rgba(255, 255, 255, 0.08);
+  }
+}
