@@ -126,7 +126,7 @@ export default function ProPage() {
           aria-label="Fades home"
         >
           <span className="brand-mark">
-            <img src="./logo.png" alt="" />
+            <img src="logo.png" alt="" />
           </span>
 
           <span>fades</span>
@@ -590,7 +590,7 @@ export default function ProPage() {
           />
 
           <div className="final-orb-inner">
-            <img src="./logo.png" alt="Fades" />
+            <img src="logo.png" alt="Fades" />
           </div>
         </div>
 
@@ -632,7 +632,7 @@ export default function ProPage() {
       <footer className="pro-footer">
         <Link href="/" className="footer-brand">
           <span className="footer-logo">
-            <img src="./logo.png" alt="" />
+            <img src="logo.png" alt="" />
           </span>
 
           <span>fades</span>
