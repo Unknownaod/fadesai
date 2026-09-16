@@ -43,7 +43,7 @@ const features = [
   },
 ];
 
-function Check({ muted = false }: { muted?: boolean }) {
+function Check({ muted = false }) {
   return (
     <span
       className={muted ? "table-dash" : "table-check"}
@@ -55,7 +55,7 @@ function Check({ muted = false }: { muted?: boolean }) {
 }
 
 export default function ProPage() {
-  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [billing, setBilling] = useState("monthly");
   const [isLoading, setIsLoading] = useState(false);
 
   const monthlyPrice = 9.99;
