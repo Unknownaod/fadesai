@@ -52,16 +52,6 @@ const SUGGESTIONS = [
 ];
 
 
-const isPro = user?.plan === "pro";
-
-const PRO_SUGGESTION = {
-  title: isPro ? "Manage Pro" : "Upgrade to Pro",
-  description: isPro
-    ? "Manage your Fades Pro subscription"
-    : "Unlock more with Fades Pro",
-};
-
-
 function ProBadge() {
   return (
     <span className="pro-badge" aria-label="Fades Pro">
