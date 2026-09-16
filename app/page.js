@@ -51,6 +51,17 @@ const SUGGESTIONS = [
   },
 ];
 
+
+const isPro = user?.plan === "pro";
+
+const PRO_SUGGESTION = {
+  title: isPro ? "Manage Pro" : "Upgrade to Pro",
+  description: isPro
+    ? "Manage your Fades Pro subscription"
+    : "Unlock more with Fades Pro",
+};
+
+
 function ProBadge() {
   return (
     <span className="pro-badge" aria-label="Fades Pro">
@@ -3496,6 +3507,29 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+<button
+  type="button"
+  className="suggestion-card"
+  onClick={() => {
+    if (isPro) {
+      window.location.href = "/pro";
+    } else {
+      window.location.href = "/pro";
+    }
+  }}
+>
+  <strong>
+    {isPro ? "Manage Pro" : "Upgrade to Pro"}
+  </strong>
+
+  <span>
+    {isPro
+      ? "Manage your Fades Pro subscription"
+      : "Unlock more with Fades Pro"}
+  </span>
+</button>
+
           ) : (
             <div
               className="messages"
