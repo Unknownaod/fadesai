@@ -6,225 +6,407 @@ import "./pro.css";
 
 const features = [
   {
-    title: "Higher limits",
-    description: "Get substantially more AI usage than the free plan.",
+    icon: "✦",
+    title: "More AI",
+    description:
+      "Higher usage limits give you more room to ask, create, code, and explore.",
   },
   {
+    icon: "↯",
     title: "Priority access",
-    description: "Your requests get priority during busy periods.",
+    description:
+      "Get priority access to Fades when demand is high.",
   },
   {
+    icon: "∞",
     title: "Longer conversations",
-    description: "Keep more context available during extended chats.",
+    description:
+      "Keep more context across longer conversations with Fades AI.",
   },
   {
-    title: "Faster responses",
-    description: "Designed for a smoother experience when you're using Fades heavily.",
+    icon: "◌",
+    title: "Faster experience",
+    description:
+      "A smoother experience designed for people who use Fades every day.",
   },
   {
-    title: "Premium experience",
-    description: "Unlock the full Fades experience without the basic-plan restrictions.",
+    icon: "⌘",
+    title: "Built for everything",
+    description:
+      "Use Fades for studying, writing, coding, brainstorming, and everyday questions.",
   },
   {
-    title: "Built for power users",
-    description: "More room to use Fades for work, studying, coding, and everyday questions.",
+    icon: "✓",
+    title: "No complicated setup",
+    description:
+      "Upgrade your existing Fades account and keep everything in one place.",
   },
 ];
+
+function ComparisonRow({ name, free, pro }) {
+  return (
+    <div className="comparison-row">
+      <div className="comparison-name">{name}</div>
+      <div className="comparison-value">{free}</div>
+      <div className="comparison-value comparison-pro">
+        {pro}
+      </div>
+    </div>
+  );
+}
 
 export default function ProPage() {
   const [billing, setBilling] = useState("monthly");
 
-  const monthlyPrice = 9.99;
-  const yearlyPrice = 99.99;
+  const monthlyPrice = "9.99";
+  const yearlyPrice = "99.99";
 
   const price =
     billing === "monthly"
       ? monthlyPrice
-      : (yearlyPrice / 12).toFixed(2);
+      : (Number(yearlyPrice) / 12).toFixed(2);
 
   function handleUpgrade() {
     // Stripe checkout will be connected here.
-    alert("Stripe checkout will be connected here.");
+    alert("Stripe checkout is coming soon.");
   }
 
   return (
     <main className="pro-page">
-      <nav className="pro-nav">
+
+      {/* Background effects */}
+      <div className="pro-glow pro-glow-one" />
+      <div className="pro-glow pro-glow-two" />
+
+      {/* Navigation */}
+      <header className="pro-nav">
         <Link href="/" className="pro-brand">
-          <img src="/logo.png" alt="Fades" />
+          <img
+            src="/logo.png"
+            alt="Fades"
+          />
+
           <span>fades</span>
         </Link>
 
-        <Link href="/" className="back-link">
+        <Link href="/" className="back-button">
+          <span>←</span>
           Back to Fades
         </Link>
-      </nav>
+      </header>
 
-      <section className="pro-hero">
-        <div className="pro-badge">
-          <span className="badge-dot" />
+      {/* Hero */}
+      <section className="hero">
+
+        <div className="hero-pill">
+          <span className="hero-pill-icon">✦</span>
           Fades Pro
         </div>
 
         <h1>
-          More Fades.
-          <br />
-          <span>Less limits.</span>
+          Fades,{" "}
+          <span>without the limits.</span>
         </h1>
 
-        <p className="hero-description">
-          Get more from Fades with higher usage limits,
-          priority access, longer conversations, and a
-          premium AI experience.
+        <p className="hero-subtitle">
+          More room to think, create, and get things done.
+          Upgrade to Fades Pro for a more powerful AI
+          experience.
         </p>
 
-        <div className="billing-toggle">
+        {/* Billing */}
+        <div className="billing-switch">
           <button
-            className={billing === "monthly" ? "active" : ""}
+            className={
+              billing === "monthly"
+                ? "billing-active"
+                : ""
+            }
             onClick={() => setBilling("monthly")}
           >
             Monthly
           </button>
 
           <button
-            className={billing === "yearly" ? "active" : ""}
+            className={
+              billing === "yearly"
+                ? "billing-active"
+                : ""
+            }
             onClick={() => setBilling("yearly")}
           >
             Yearly
-            <span>Save</span>
+
+            <span className="save-pill">
+              Save
+            </span>
           </button>
         </div>
 
-        <div className="pricing-card">
-          <div className="pricing-top">
-            <div>
-              <div className="plan-name">Fades Pro</div>
-              <div className="plan-subtitle">
-                For people who use Fades more.
+        {/* Pricing card */}
+        <div className="pricing-wrapper">
+
+          <div className="pricing-card">
+
+            <div className="pricing-card-top">
+
+              <div className="pricing-title-area">
+                <div className="mini-label">
+                  FADES PRO
+                </div>
+
+                <h2>
+                  Everything you need.
+                </h2>
+
+                <p>
+                  Built for people who use Fades
+                  more often.
+                </p>
               </div>
+
+              <div className="price-area">
+                <div className="price-line">
+                  <span className="currency">
+                    $
+                  </span>
+
+                  <span className="price">
+                    {price}
+                  </span>
+                </div>
+
+                <span className="price-period">
+                  USD / month
+                </span>
+              </div>
+
             </div>
 
-            <div className="price">
-              <strong>${price}</strong>
-              <span>/ month</span>
+            {billing === "yearly" && (
+              <div className="annual-message">
+                <span>✓</span>
+                Billed ${yearlyPrice} once per year
+              </div>
+            )}
+
+            <div className="pricing-divider" />
+
+            <div className="included-title">
+              Pro includes
             </div>
+
+            <div className="included-grid">
+
+              <div>
+                <span>✓</span>
+                Higher AI limits
+              </div>
+
+              <div>
+                <span>✓</span>
+                Priority access
+              </div>
+
+              <div>
+                <span>✓</span>
+                Longer conversations
+              </div>
+
+              <div>
+                <span>✓</span>
+                Premium experience
+              </div>
+
+            </div>
+
+            <button
+              className="checkout-button"
+              onClick={handleUpgrade}
+            >
+              <span>Upgrade to Pro</span>
+              <span className="checkout-arrow">
+                →
+              </span>
+            </button>
+
+            <div className="checkout-note">
+              Secure checkout · Cancel anytime
+            </div>
+
           </div>
 
-          {billing === "yearly" && (
-            <div className="yearly-note">
-              Billed ${yearlyPrice} annually.
-            </div>
-          )}
-
-          <button
-            className="upgrade-button"
-            onClick={handleUpgrade}
-          >
-            Upgrade to Pro
-            <span>→</span>
-          </button>
-
-          <div className="secure-note">
-            Secure checkout powered by Stripe
-          </div>
         </div>
+
       </section>
 
+      {/* Feature section */}
       <section className="features-section">
-        <div className="section-heading">
-          <span>WHAT YOU GET</span>
-          <h2>Built for more.</h2>
+
+        <div className="section-intro">
+          <div className="section-eyebrow">
+            WHY PRO
+          </div>
+
+          <h2>
+            More of what makes
+            <br />
+            <span>Fades useful.</span>
+          </h2>
+
+          <p>
+            Pro is designed around the way people
+            actually use AI — more conversations,
+            more questions, and more room to create.
+          </p>
         </div>
 
         <div className="features-grid">
+
           {features.map((feature) => (
-            <div className="feature-card" key={feature.title}>
+            <div
+              className="feature-card"
+              key={feature.title}
+            >
               <div className="feature-icon">
-                ✓
+                {feature.icon}
               </div>
 
-              <h3>{feature.title}</h3>
+              <h3>
+                {feature.title}
+              </h3>
 
-              <p>{feature.description}</p>
+              <p>
+                {feature.description}
+              </p>
             </div>
           ))}
+
         </div>
+
       </section>
 
+      {/* Comparison */}
       <section className="comparison-section">
+
+        <div className="section-intro centered">
+          <div className="section-eyebrow">
+            COMPARE
+          </div>
+
+          <h2>
+            Simple plans.
+          </h2>
+
+          <p>
+            Start free and upgrade whenever you
+            need more.
+          </p>
+        </div>
+
         <div className="comparison-card">
+
           <div className="comparison-header">
             <div />
             <div>Free</div>
-            <div className="pro-column">Pro</div>
+            <div className="comparison-pro">
+              Pro
+            </div>
           </div>
 
           <ComparisonRow
-            label="AI access"
-            free="Standard"
-            pro="Priority"
+            name="AI access"
+            free="✓"
+            pro="✓"
           />
 
           <ComparisonRow
-            label="Usage limits"
+            name="Usage limits"
             free="Standard"
             pro="Higher"
           />
 
           <ComparisonRow
-            label="Long conversations"
-            free="Limited"
+            name="Conversation length"
+            free="Standard"
             pro="Extended"
           />
 
           <ComparisonRow
-            label="Priority access"
+            name="Priority access"
             free="—"
             pro="✓"
           />
 
           <ComparisonRow
-            label="Premium experience"
+            name="Premium experience"
             free="—"
             pro="✓"
           />
+
         </div>
+
       </section>
 
-      <section className="final-cta">
-        <h2>Ready for more?</h2>
+      {/* CTA */}
+      <section className="final-section">
+
+        <div className="final-logo">
+          <img
+            src="/logo.png"
+            alt="Fades"
+          />
+        </div>
+
+        <h2>
+          Make more with Fades.
+        </h2>
+
         <p>
-          Upgrade whenever you're ready. Your account stays
-          yours, and you can manage your subscription anytime.
+          Upgrade to Pro and get more room for
+          everything you're already using Fades for.
         </p>
 
         <button
-          className="upgrade-button small"
+          className="final-button"
           onClick={handleUpgrade}
         >
           Get Fades Pro
           <span>→</span>
         </button>
+
       </section>
 
+      {/* Footer */}
       <footer className="pro-footer">
-        <span>© {new Date().getFullYear()} Fades</span>
 
-        <div>
-          <Link href="/">Home</Link>
-          <Link href="/settings">Settings</Link>
+        <div className="footer-brand">
+          <img
+            src="/logo.png"
+            alt="Fades"
+          />
+
+          <span>
+            fades
+          </span>
         </div>
-      </footer>
-    </main>
-  );
-}
 
-function ComparisonRow({ label, free, pro }) {
-  return (
-    <div className="comparison-row">
-      <div>{label}</div>
-      <div>{free}</div>
-      <div className="pro-column">{pro}</div>
-    </div>
+        <div className="footer-links">
+          <Link href="/">
+            Home
+          </Link>
+
+          <Link href="/settings">
+            Settings
+          </Link>
+        </div>
+
+        <div className="copyright">
+          © {new Date().getFullYear()} Fades
+        </div>
+
+      </footer>
+
+    </main>
   );
 }
