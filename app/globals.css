@@ -3370,6 +3370,10 @@ a {
    SETTINGS TABS — ADDITIVE STYLES
    ========================================================= */
 
+/* =========================================================
+   SETTINGS PANEL
+   ========================================================= */
+
 .settings-panel {
   width: 100%;
   max-width: 900px;
@@ -3378,6 +3382,10 @@ a {
   flex-direction: column;
   min-height: 0;
 }
+
+/* =========================================================
+   SETTINGS HEADER
+   ========================================================= */
 
 .settings-header {
   display: flex;
@@ -3429,6 +3437,7 @@ a {
 .settings-status-dot {
   width: 6px;
   height: 6px;
+  flex: 0 0 6px;
   border-radius: 50%;
   background: currentColor;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
@@ -3436,6 +3445,9 @@ a {
 
 /* =========================================================
    SETTINGS TABS
+   IMPORTANT:
+   The typography of the tab text is intentionally NOT
+   changed here. It inherits your existing site styles.
    ========================================================= */
 
 .settings-tabs {
@@ -3447,9 +3459,12 @@ a {
   margin-bottom: 18px;
   overflow-x: auto;
   scrollbar-width: none;
+
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.025);
+
+  box-sizing: border-box;
 }
 
 .settings-tabs::-webkit-scrollbar {
@@ -3458,24 +3473,40 @@ a {
 
 .settings-tab {
   position: relative;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   gap: 8px;
+
   flex: 1 1 0;
   min-width: 105px;
   min-height: 38px;
+
   padding: 8px 13px;
+
   border: 0;
   border-radius: 9px;
+
   background: transparent;
   color: inherit;
+
+  /*
+   * Do not set font-size, font-weight, line-height,
+   * font-family, or text-transform here.
+   *
+   * This prevents the Settings redesign from changing
+   * the appearance of the actual tab text.
+   */
   font: inherit;
-  font-size: 12px;
-  font-weight: 650;
+
   white-space: nowrap;
+
   cursor: pointer;
+
   opacity: 0.55;
+
   transition:
     background 0.18s ease,
     opacity 0.18s ease,
@@ -3501,10 +3532,23 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+
   opacity: 0.8;
+}
+
+/*
+ * The following intentionally only controls layout.
+ * It does NOT change the typography of the tab labels.
+ */
+
+.settings-tab > span:not(.settings-tab-icon) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* =========================================================
@@ -3515,22 +3559,33 @@ a {
   display: flex;
   flex-direction: column;
   gap: 14px;
+
   min-height: 0;
 }
 
+/* =========================================================
+   SETTINGS CARDS
+   ========================================================= */
+
 .settings-card {
   width: 100%;
+
   padding: 18px;
+
   border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 15px;
+
   background: rgba(255, 255, 255, 0.025);
+
   box-sizing: border-box;
 }
 
 .settings-card-heading {
   display: flex;
   align-items: center;
+
   gap: 10px;
+
   margin-bottom: 14px;
 }
 
@@ -3538,25 +3593,33 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
+
   border-radius: 9px;
+
   background: rgba(255, 255, 255, 0.055);
+
   opacity: 0.85;
 }
 
 .settings-title {
   margin: 0;
+
   font-size: 13px;
   font-weight: 700;
+
   letter-spacing: -0.01em;
 }
 
 .settings-description {
   margin: 3px 0 0;
+
   font-size: 11px;
   line-height: 1.45;
+
   opacity: 0.5;
 }
 
@@ -3568,8 +3631,11 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 20px;
+
   min-height: 54px;
+
   padding: 10px 0;
 }
 
@@ -3582,6 +3648,11 @@ a {
   flex: 1;
 }
 
+/*
+ * These styles only apply inside a Settings row.
+ * They do not affect the tab text.
+ */
+
 .settings-row-label > div:first-child {
   font-size: 12px;
   font-weight: 650;
@@ -3589,8 +3660,10 @@ a {
 
 .settings-row-label > div:last-child {
   margin-top: 3px;
+
   font-size: 11px;
   line-height: 1.4;
+
   opacity: 0.48;
 }
 
@@ -3601,15 +3674,22 @@ a {
 .settings-select {
   min-width: 145px;
   height: 36px;
+
   padding: 0 34px 0 11px;
+
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 9px;
+
   background: rgba(255, 255, 255, 0.045);
   color: inherit;
+
   font: inherit;
   font-size: 11px;
+
   outline: none;
+
   cursor: pointer;
+
   transition:
     border-color 0.18s ease,
     background 0.18s ease;
@@ -3631,17 +3711,25 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   gap: 7px;
+
   min-height: 36px;
+
   padding: 8px 12px;
+
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 9px;
+
   background: rgba(255, 255, 255, 0.045);
   color: inherit;
+
   font: inherit;
   font-size: 11px;
   font-weight: 650;
+
   cursor: pointer;
+
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
@@ -3657,6 +3745,11 @@ a {
   transform: scale(0.98);
 }
 
+.settings-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .settings-action-button svg {
   width: 14px;
   height: 14px;
@@ -3669,23 +3762,37 @@ a {
 .settings-info-banner {
   display: flex;
   align-items: flex-start;
+
   gap: 11px;
+
   padding: 12px 13px;
+
   border: 1px solid rgba(255, 255, 255, 0.065);
   border-radius: 11px;
+
   background: rgba(255, 255, 255, 0.025);
+
   font-size: 11px;
   line-height: 1.5;
+}
+
+.settings-info-banner > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .settings-info-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   width: 17px;
   height: 17px;
   flex: 0 0 17px;
+
   margin-top: 1px;
+
   opacity: 0.65;
 }
 
@@ -3702,10 +3809,16 @@ a {
   background: rgba(255, 70, 70, 0.08);
 }
 
+/* =========================================================
+   ACCOUNT SUMMARY
+   ========================================================= */
+
 .account-summary {
   display: flex;
   align-items: center;
+
   gap: 13px;
+
   padding: 4px 0 16px;
 }
 
@@ -3713,19 +3826,25 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
+
   width: 46px;
   height: 46px;
   flex: 0 0 46px;
+
   border-radius: 13px;
+
   background: rgba(255, 255, 255, 0.07);
+
   font-size: 16px;
   font-weight: 750;
+
   overflow: hidden;
 }
 
 .settings-account-avatar img {
   width: 100%;
   height: 100%;
+
   object-fit: cover;
 }
 
@@ -3737,27 +3856,36 @@ a {
 .account-name {
   display: flex;
   align-items: center;
+
   gap: 6px;
+
   font-size: 13px;
   font-weight: 700;
 }
 
 .account-email {
   margin-top: 3px;
+
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
   font-size: 11px;
+
   opacity: 0.5;
 }
 
 .account-status {
   display: inline-flex;
   align-items: center;
+
   gap: 5px;
+
   margin-top: 6px;
+
   font-size: 10px;
   font-weight: 600;
+
   opacity: 0.6;
 }
 
@@ -3770,37 +3898,53 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+
   min-height: 190px;
+
   padding: 30px;
+
   border: 1px dashed rgba(255, 255, 255, 0.1);
   border-radius: 15px;
+
   background: rgba(255, 255, 255, 0.018);
+
   text-align: center;
+
+  box-sizing: border-box;
 }
 
 .settings-empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+
   width: 46px;
   height: 46px;
+
   margin-bottom: 12px;
+
   border-radius: 13px;
+
   background: rgba(255, 255, 255, 0.055);
+
   opacity: 0.75;
 }
 
 .settings-empty-card h3 {
   margin: 0;
+
   font-size: 13px;
   font-weight: 700;
 }
 
 .settings-empty-card p {
   max-width: 390px;
+
   margin: 6px 0 15px;
+
   font-size: 11px;
   line-height: 1.5;
+
   opacity: 0.5;
 }
 
@@ -3811,7 +3955,9 @@ a {
 .settings-about-hero {
   display: flex;
   align-items: center;
+
   gap: 15px;
+
   padding: 4px 0 20px;
 }
 
@@ -3819,33 +3965,44 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
+
   width: 58px;
   height: 58px;
   flex: 0 0 58px;
+
   border-radius: 16px;
+
   background: rgba(255, 255, 255, 0.055);
+
   overflow: hidden;
 }
 
 .settings-about-logo-img {
   width: 100%;
   height: 100%;
+
   object-fit: contain;
+
   padding: 9px;
+
   box-sizing: border-box;
 }
 
 .settings-about-hero h3 {
   margin: 0;
+
   font-size: 17px;
   font-weight: 750;
+
   letter-spacing: -0.02em;
 }
 
 .settings-about-hero p {
   margin: 4px 0 0;
+
   font-size: 11px;
   line-height: 1.5;
+
   opacity: 0.5;
 }
 
@@ -3855,47 +4012,79 @@ a {
 
 .settings-stats {
   display: grid;
+
   grid-template-columns: repeat(3, 1fr);
+
   gap: 9px;
+
   margin-top: 5px;
 }
 
 .settings-stat {
   padding: 13px;
+
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 11px;
+
   background: rgba(255, 255, 255, 0.025);
 }
 
 .settings-stat-value {
   font-size: 16px;
   font-weight: 750;
+
   letter-spacing: -0.02em;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-stat-label {
   margin-top: 3px;
+
   font-size: 10px;
+
   opacity: 0.45;
 }
 
 .settings-version {
-  margin-top: 13px;
+  display: inline-flex;
+  align-items: center;
+
+  min-height: 27px;
+
+  padding: 4px 9px;
+
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.035);
+
   font-size: 10px;
-  opacity: 0.4;
+  font-weight: 650;
+
+  opacity: 0.7;
+
+  box-sizing: border-box;
 }
 
 .settings-model-pill {
   display: inline-flex;
   align-items: center;
+
   min-height: 27px;
-  margin-top: 4px;
+
   padding: 4px 9px;
+
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 999px;
+
   background: rgba(255, 255, 255, 0.035);
+
   font-size: 10px;
   font-weight: 650;
+
+  box-sizing: border-box;
 }
 
 /* =========================================================
@@ -3906,27 +4095,41 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   gap: 7px;
+
   width: 100%;
   min-height: 38px;
+
   margin-top: 15px;
+
   padding: 8px 13px;
+
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
+
   background: rgba(255, 255, 255, 0.035);
   color: inherit;
+
   font: inherit;
   font-size: 11px;
   font-weight: 650;
+
   cursor: pointer;
+
   transition:
     background 0.18s ease,
-    border-color 0.18s ease;
+    border-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .settings-about-button:hover {
   background: rgba(255, 255, 255, 0.065);
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.settings-about-button:active {
+  transform: scale(0.99);
 }
 
 /* =========================================================
@@ -3937,7 +4140,9 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 12px;
+
   padding: 18px 4px 2px;
 }
 
@@ -3963,10 +4168,13 @@ a {
   background: rgba(0, 0, 0, 0.018);
 }
 
-.light .settings-tab:hover,
+.light .settings-tab:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+
 .light .settings-tab.active,
 .light .settings-tab[aria-selected="true"] {
-  background: rgba(0, 0, 0, 0.045);
+  background: rgba(0, 0, 0, 0.055);
 }
 
 .light .settings-action-button,
@@ -3989,8 +4197,20 @@ a {
   border-color: rgba(0, 0, 0, 0.08);
 }
 
+.light .settings-card-icon,
+.light .settings-empty-icon,
+.light .settings-about-logo {
+  background: rgba(0, 0, 0, 0.045);
+}
+
+.light .settings-model-pill,
+.light .settings-version {
+  border-color: rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.025);
+}
+
 /* =========================================================
-   RESPONSIVE
+   RESPONSIVE — TABLET / SMALL DESKTOP
    ========================================================= */
 
 @media (max-width: 700px) {
@@ -4011,6 +4231,7 @@ a {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
+
     padding: 13px 0;
   }
 
@@ -4033,6 +4254,10 @@ a {
   }
 }
 
+/* =========================================================
+   RESPONSIVE — MOBILE
+   ========================================================= */
+
 @media (max-width: 480px) {
   .settings-card {
     padding: 15px;
@@ -4050,9 +4275,12 @@ a {
   .settings-tab {
     min-width: 94px;
     padding: 8px 10px;
-    font-size: 11px;
   }
 
+  /*
+   * Hide only the decorative icons on small screens.
+   * The tab text itself is untouched.
+   */
   .settings-tab-icon {
     display: none;
   }
