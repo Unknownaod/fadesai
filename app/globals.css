@@ -3365,3 +3365,704 @@ a {
       0 0 16px rgba(255, 255, 255, 0.22);
   }
 }
+
+/* =========================================================
+   SETTINGS TABS — ADDITIVE STYLES
+   ========================================================= */
+
+.settings-panel {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 4px 22px;
+}
+
+.settings-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.settings-heading {
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.2;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.settings-subheading {
+  margin: 7px 0 0;
+  max-width: 620px;
+  font-size: 13px;
+  line-height: 1.55;
+  opacity: 0.58;
+}
+
+.settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  margin-top: 5px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.settings-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+}
+
+/* =========================================================
+   SETTINGS TABS
+   ========================================================= */
+
+.settings-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 105px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.55;
+  transition:
+    background 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.settings-tab:hover {
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.settings-tab:active {
+  transform: scale(0.985);
+}
+
+.settings-tab.active,
+.settings-tab[aria-selected="true"] {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.settings-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  opacity: 0.8;
+}
+
+/* =========================================================
+   SETTINGS CONTENT
+   ========================================================= */
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.settings-card {
+  width: 100%;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.025);
+  box-sizing: border-box;
+}
+
+.settings-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.settings-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.055);
+  opacity: 0.85;
+}
+
+.settings-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.settings-description {
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: 0.5;
+}
+
+/* =========================================================
+   SETTINGS ROWS
+   ========================================================= */
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 54px;
+  padding: 10px 0;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.settings-row-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-row-label > div:first-child {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.settings-row-label > div:last-child {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0.48;
+}
+
+/* =========================================================
+   SELECT
+   ========================================================= */
+
+.settings-select {
+  min-width: 145px;
+  height: 36px;
+  padding: 0 34px 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.settings-select:hover {
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.settings-select:focus {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* =========================================================
+   ACTION BUTTONS
+   ========================================================= */
+
+.settings-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.settings-action-button:hover {
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.settings-action-button:active {
+  transform: scale(0.98);
+}
+
+.settings-action-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* =========================================================
+   INFO BANNER
+   ========================================================= */
+
+.settings-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-top: 1px;
+  opacity: 0.65;
+}
+
+/* =========================================================
+   DANGER / ACCOUNT
+   ========================================================= */
+
+.settings-danger-card {
+  border-color: rgba(255, 80, 80, 0.16);
+  background: rgba(255, 50, 50, 0.025);
+}
+
+.settings-danger-card .settings-card-icon {
+  background: rgba(255, 70, 70, 0.08);
+}
+
+.account-summary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 4px 0 16px;
+}
+
+.settings-account-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 16px;
+  font-weight: 750;
+  overflow: hidden;
+}
+
+.settings-account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-summary-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-email {
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+.account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+/* =========================================================
+   EMPTY ACCOUNT STATE
+   ========================================================= */
+
+.settings-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  padding: 30px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.018);
+  text-align: center;
+}
+
+.settings-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.055);
+  opacity: 0.75;
+}
+
+.settings-empty-card h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-empty-card p {
+  max-width: 390px;
+  margin: 6px 0 15px;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.5;
+}
+
+/* =========================================================
+   ABOUT
+   ========================================================= */
+
+.settings-about-hero {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 4px 0 20px;
+}
+
+.settings-about-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  overflow: hidden;
+}
+
+.settings-about-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 9px;
+  box-sizing: border-box;
+}
+
+.settings-about-hero h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.settings-about-hero p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.5;
+}
+
+/* =========================================================
+   ABOUT STATS
+   ========================================================= */
+
+.settings-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-top: 5px;
+}
+
+.settings-stat {
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.settings-stat-value {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.settings-stat-label {
+  margin-top: 3px;
+  font-size: 10px;
+  opacity: 0.45;
+}
+
+.settings-version {
+  margin-top: 13px;
+  font-size: 10px;
+  opacity: 0.4;
+}
+
+.settings-model-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  margin-top: 4px;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+/* =========================================================
+   ABOUT BUTTON
+   ========================================================= */
+
+.settings-about-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 15px;
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.settings-about-button:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* =========================================================
+   SETTINGS FOOTER
+   ========================================================= */
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 4px 2px;
+}
+
+.settings-footer > div:first-child {
+  font-size: 10px;
+  opacity: 0.4;
+}
+
+.settings-footer button {
+  min-width: 75px;
+}
+
+/* =========================================================
+   LIGHT MODE
+   ========================================================= */
+
+.light .settings-tabs,
+.light .settings-card,
+.light .settings-empty-card,
+.light .settings-stat,
+.light .settings-info-banner {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.018);
+}
+
+.light .settings-tab:hover,
+.light .settings-tab.active,
+.light .settings-tab[aria-selected="true"] {
+  background: rgba(0, 0, 0, 0.045);
+}
+
+.light .settings-action-button,
+.light .settings-about-button,
+.light .settings-select {
+  border-color: rgba(0, 0, 0, 0.09);
+  background: rgba(0, 0, 0, 0.025);
+}
+
+.light .settings-action-button:hover,
+.light .settings-about-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light .settings-row + .settings-row {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.light .settings-status {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .settings-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-status {
+    margin-top: 0;
+  }
+
+  .settings-tab {
+    flex: 0 0 auto;
+  }
+
+  .settings-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 13px 0;
+  }
+
+  .settings-select,
+  .settings-action-button {
+    width: 100%;
+  }
+
+  .settings-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-footer button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-card {
+    padding: 15px;
+    border-radius: 13px;
+  }
+
+  .settings-heading {
+    font-size: 22px;
+  }
+
+  .settings-tabs {
+    border-radius: 11px;
+  }
+
+  .settings-tab {
+    min-width: 94px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .settings-tab-icon {
+    display: none;
+  }
+
+  .account-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .settings-about-hero {
+    align-items: flex-start;
+  }
+}
