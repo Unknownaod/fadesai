@@ -7,45 +7,48 @@ import "./pro.css";
 const features = [
 {
 number: "01",
-title: "More usage",
+title: "Higher AI limits",
 description:
-"Higher usage limits give you more space to ask questions, write, code, research, and create.",
+"More room for questions, coding, writing, research, and everyday conversations.",
 },
 {
 number: "02",
-title: "Longer context",
+title: "Extended context",
 description:
-"Keep more of your conversation in context when working through larger ideas and longer tasks.",
+"Keep more of your conversations available when you're working through larger ideas.",
 },
 {
 number: "03",
 title: "Priority access",
 description:
-"Get priority access to Fades when demand is high.",
+"Get priority access to Fades during periods of high demand.",
 },
 {
 number: "04",
-title: "Built for everyday use",
+title: "Built for daily use",
 description:
-"From quick questions to serious projects, Pro gives you more room to use Fades throughout the day.",
+"Use Fades throughout your day without constantly running into standard limits.",
 },
 {
 number: "05",
-title: "One account",
+title: "Everything stays together",
 description:
-"Everything stays connected to your existing Fades account. Upgrade without starting over.",
+"Your existing account, conversations, preferences, and Fades experience stay connected.",
 },
 {
 number: "06",
-title: "A better Fades",
+title: "More Fades",
 description:
-"Pro is designed for people who want to get more out of the Fades experience.",
+"A premium experience designed for people who rely on AI more often.",
 },
 ];
 
 function Check({ muted = false }) {
 return (
-<span className={muted ? "table-dash" : "table-check"}>
+<span
+className={muted ? "table-dash" : "table-check"}
+aria-hidden="true"
+>
 {muted ? "—" : "✓"} </span>
 );
 }
@@ -53,13 +56,18 @@ return (
 export default function ProPage() {
 const [billing, setBilling] = useState("monthly");
 
-const monthlyPrice = "9.99";
-const yearlyPrice = "99.99";
+const monthlyPrice = 9.99;
+const yearlyPrice = 99.99;
 
 const monthlyEquivalent =
 billing === "monthly"
-? monthlyPrice
-: (Number(yearlyPrice) / 12).toFixed(2);
+? monthlyPrice.toFixed(2)
+: (yearlyPrice / 12).toFixed(2);
+
+const yearlySavings = (
+monthlyPrice * 12 -
+yearlyPrice
+).toFixed(2);
 
 function handleUpgrade() {
 alert("Stripe checkout is coming soon.");
@@ -67,6 +75,8 @@ alert("Stripe checkout is coming soon.");
 
 return ( <main className="pro-page"> <div className="background-grid" /> <div className="background-glow background-glow-top" /> <div className="background-glow background-glow-left" />
 
+
+  {/* NAVIGATION */}
 
   <header className="pro-nav">
     <Link href="/" className="brand">
@@ -80,6 +90,8 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </Link>
   </header>
 
+  {/* HERO */}
+
   <section className="hero">
     <div className="eyebrow">
       <span className="eyebrow-dot" />
@@ -87,21 +99,25 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
 
     <h1>
-      More room
+      AI that
       <br />
-      <span>to do more.</span>
+      <span>keeps up.</span>
     </h1>
 
     <p className="hero-copy">
-      A more capable Fades experience for people who
-      use AI every day.
+      More usage. Longer conversations. Priority access.
+      <br />
+      Everything you need to get more out of Fades.
     </p>
+
+    {/* BILLING SELECTOR */}
 
     <div className="billing-control">
       <button
         type="button"
         className={billing === "monthly" ? "active" : ""}
         onClick={() => setBilling("monthly")}
+        aria-pressed={billing === "monthly"}
       >
         Monthly
       </button>
@@ -110,26 +126,35 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
         type="button"
         className={billing === "yearly" ? "active" : ""}
         onClick={() => setBilling("yearly")}
+        aria-pressed={billing === "yearly"}
       >
         Yearly
         <span>Save</span>
       </button>
     </div>
 
+    {/* PRICING CARD */}
+
     <div className="pricing-card">
+      <div className="pricing-card-topline">
+        <span>FADES PRO</span>
+
+        <span className="popular-badge">
+          PRO
+        </span>
+      </div>
+
       <div className="pricing-top">
         <div className="pricing-info">
-          <div className="pricing-label">FADES PRO</div>
-
           <h2>
-            More Fades.
+            More room.
             <br />
-            Less waiting.
+            More Fades.
           </h2>
 
           <p>
-            Higher limits, longer conversations,
-            and priority access.
+            A premium Fades experience for people
+            who use AI every day.
           </p>
         </div>
 
@@ -140,7 +165,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
           </div>
 
           <div className="price-period">
-            USD / month
+            {billing === "monthly"
+              ? "USD / month"
+              : "USD / month equivalent"}
           </div>
         </div>
       </div>
@@ -148,8 +175,10 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       {billing === "yearly" && (
         <div className="billing-note">
           <Check />
+
           <span>
-            Billed ${yearlyPrice} USD once per year
+            Billed ${yearlyPrice.toFixed(2)} USD yearly
+            · Save ${yearlySavings}
           </span>
         </div>
       )}
@@ -158,7 +187,7 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="included">
         <div className="included-heading">
-          Everything in Pro
+          Included with Pro
         </div>
 
         <div className="included-list">
@@ -169,7 +198,7 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
           <div>
             <Check />
-            <span>Longer conversations</span>
+            <span>Extended conversation context</span>
           </div>
 
           <div>
@@ -189,8 +218,13 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
         className="primary-button"
         onClick={handleUpgrade}
       >
-        <span>Continue with Pro</span>
-        <span className="button-arrow">↗</span>
+        <span>
+          Get Fades Pro
+        </span>
+
+        <span className="button-arrow">
+          ↗
+        </span>
       </button>
 
       <p className="secure-note">
@@ -199,25 +233,29 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
 
     <div className="hero-footnote">
-      <span>For people who use Fades more often.</span>
+      <span>No complicated setup</span>
       <span className="footnote-separator">·</span>
-      <span>Built around your workflow.</span>
+      <span>One Fades account</span>
+      <span className="footnote-separator">·</span>
+      <span>Upgrade when you're ready</span>
     </div>
   </section>
+
+  {/* STATEMENT */}
 
   <section className="statement-section">
     <div className="section-line" />
 
     <div className="statement-grid">
       <div className="section-label">
-        THE IDEA
+        WHY PRO
       </div>
 
       <div>
         <h2>
-          AI should feel like
+          Fades should
           <br />
-          <span>it keeps up with you.</span>
+          <span>keep up with you.</span>
         </h2>
 
         <p>
@@ -229,6 +267,8 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
   </section>
 
+  {/* FEATURES */}
+
   <section className="features-section">
     <div className="section-heading">
       <div className="section-label">
@@ -236,9 +276,9 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       </div>
 
       <h2>
-        Designed for
+        More space.
         <br />
-        <span>more.</span>
+        <span>More possibilities.</span>
       </h2>
     </div>
 
@@ -253,20 +293,27 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
           </div>
 
           <div className="feature-content">
-            <h3>{feature.title}</h3>
+            <h3>
+              {feature.title}
+            </h3>
 
             <p>
               {feature.description}
             </p>
           </div>
 
-          <div className="feature-mark">
+          <div
+            className="feature-mark"
+            aria-hidden="true"
+          >
             ↗
           </div>
         </article>
       ))}
     </div>
   </section>
+
+  {/* COMPARISON */}
 
   <section className="comparison-section">
     <div className="section-heading centered">
@@ -275,14 +322,14 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
       </div>
 
       <h2>
-        Simple by
+        Choose your
         <br />
-        <span>design.</span>
+        <span>Fades experience.</span>
       </h2>
 
       <p>
-        Start with Fades for free. Upgrade when
-        you need more.
+        Start free and upgrade whenever you need
+        more from Fades.
       </p>
     </div>
 
@@ -297,9 +344,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="comparison-row">
         <div>AI access</div>
+
         <div>
           <Check />
         </div>
+
         <div className="pro-column">
           <Check />
         </div>
@@ -307,7 +356,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="comparison-row">
         <div>Usage limits</div>
-        <div>Standard</div>
+
+        <div>
+          Standard
+        </div>
+
         <div className="pro-column">
           Higher
         </div>
@@ -315,7 +368,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="comparison-row">
         <div>Conversation context</div>
-        <div>Standard</div>
+
+        <div>
+          Standard
+        </div>
+
         <div className="pro-column">
           Extended
         </div>
@@ -323,9 +380,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="comparison-row">
         <div>Priority access</div>
+
         <div>
           <Check muted />
         </div>
+
         <div className="pro-column">
           <Check />
         </div>
@@ -333,9 +392,11 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
 
       <div className="comparison-row">
         <div>Premium experience</div>
+
         <div>
           <Check muted />
         </div>
+
         <div className="pro-column">
           <Check />
         </div>
@@ -343,9 +404,14 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </div>
   </section>
 
+  {/* FINAL CTA */}
+
   <section className="final-section">
     <div className="final-orb">
-      <img src="/logo.png" alt="Fades" />
+      <img
+        src="/logo.png"
+        alt="Fades"
+      />
     </div>
 
     <div className="section-label">
@@ -373,15 +439,26 @@ return ( <main className="pro-page"> <div className="background-grid" /> <div cl
     </button>
   </section>
 
+  {/* FOOTER */}
+
   <footer className="pro-footer">
     <div className="footer-brand">
-      <img src="/logo.png" alt="Fades" />
+      <img
+        src="/logo.png"
+        alt="Fades"
+      />
+
       <span>fades</span>
     </div>
 
     <div className="footer-links">
-      <Link href="/">Home</Link>
-      <Link href="/settings">Settings</Link>
+      <Link href="/">
+        Home
+      </Link>
+
+      <Link href="/settings">
+        Settings
+      </Link>
     </div>
 
     <div className="footer-copy">
