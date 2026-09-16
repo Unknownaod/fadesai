@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import "./globals.css";
+import "./pro.css";
 
 const features = [
   {
