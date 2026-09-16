@@ -9,6 +9,7 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import "./globals.css";
+import logoImage from "./logo.png";
 
 const SETTINGS_KEY = "fades.settings.v1";
 const API_URL = "https://api.fades.lol";
@@ -3088,7 +3089,11 @@ export default function Home() {
         <div className="sidebar-top">
           <div className="sidebar-brand">
             <div className="brand-mark">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="brand-mark-img"
+              />
             </div>
 
             <div className="brand-name">
@@ -3328,7 +3333,11 @@ export default function Home() {
 
           <div className="mobile-brand">
             <div className="brand-mark">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="brand-mark-img"
+              />
             </div>
 
             <div className="brand-name">
@@ -3829,7 +3838,11 @@ export default function Home() {
             </button>
 
             <div className="modal-logo">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="modal-logo-img"
+              />
             </div>
 
             <h2>
@@ -4101,7 +4114,11 @@ export default function Home() {
             </button>
 
             <div className="modal-logo">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="modal-logo-img"
+              />
             </div>
 
             <h2>
@@ -4646,7 +4663,11 @@ export default function Home() {
             </button>
 
             <div className="modal-logo">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="modal-logo-img"
+              />
             </div>
 
             <h2>
@@ -4734,7 +4755,11 @@ export default function Home() {
             </button>
 
             <div className="modal-logo">
-              f
+              <img
+                src={logoImage.src}
+                alt="Fades"
+                className="modal-logo-img"
+              />
             </div>
 
             <h2>
