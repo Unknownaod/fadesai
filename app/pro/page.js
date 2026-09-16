@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import "./pro.css";
 
@@ -58,7 +58,18 @@ function Check({ muted = false }) {
 
 export default function ProPage() {
   const [billing, setBilling] = useState("monthly");
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [isCheckingAccount, setIsCheckingAccount] =
+    useState(true);
+
+  const [isPro, setIsPro] =
+    useState(false);
+
+  const [isLoggedIn, setIsLoggedIn] =
+    useState(false);
 
   const monthlyPrice = 9.99;
   const yearlyPrice = 99.99;
@@ -75,12 +86,113 @@ export default function ProPage() {
 
   /*
   =========================================================
+  CHECK CURRENT ACCOUNT
+  =========================================================
+  */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAccount() {
+      try {
+        const response = await fetch(
+          `${API_URL}/auth/me`,
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.status === 401) {
+          setIsLoggedIn(false);
+          setIsPro(false);
+          return;
+        }
+
+        if (!response.ok) {
+          setIsLoggedIn(false);
+          setIsPro(false);
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        /*
+        ---------------------------------------------------
+        Support either:
+
+        {
+          user: {...}
+        }
+
+        or:
+
+        {
+          success: true,
+          user: {...}
+        }
+
+        ---------------------------------------------------
+        */
+
+        const user =
+          data?.user || data;
+
+        setIsLoggedIn(
+          Boolean(user?.id)
+        );
+
+        setIsPro(
+          user?.plan === "pro"
+        );
+      } catch (error) {
+        console.error(
+          "[FADES PRO] Account check failed:",
+          error
+        );
+
+        if (!cancelled) {
+          setIsLoggedIn(false);
+          setIsPro(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCheckingAccount(false);
+        }
+      }
+    }
+
+    checkAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /*
+  =========================================================
   STRIPE CHECKOUT
   =========================================================
   */
 
   const handleUpgrade = async () => {
     if (isLoading) {
+      return;
+    }
+
+    /*
+    -------------------------------------------------------
+    Already subscribed
+    -------------------------------------------------------
+    */
+
+    if (isPro) {
       return;
     }
 
@@ -107,7 +219,8 @@ export default function ProPage() {
       let data;
 
       try {
-        data = await response.json();
+        data =
+          await response.json();
       } catch {
         throw new Error(
           "The billing server returned an invalid response."
@@ -123,6 +236,29 @@ export default function ProPage() {
       if (response.status === 401) {
         alert(
           "Please log in to your Fades account before upgrading to Pro."
+        );
+
+        setIsLoading(false);
+
+        return;
+      }
+
+      /*
+      -------------------------------------------------------
+      Already subscribed
+      -------------------------------------------------------
+      */
+
+      if (
+        response.status === 400 &&
+        data?.error
+          ?.toLowerCase()
+          .includes("already")
+      ) {
+        setIsPro(true);
+
+        alert(
+          "Your account already has Fades Pro."
         );
 
         setIsLoading(false);
@@ -161,7 +297,8 @@ export default function ProPage() {
       -------------------------------------------------------
       */
 
-      window.location.href = data.url;
+      window.location.href =
+        data.url;
     } catch (error) {
       console.error(
         "[FADES PRO] Checkout failed:",
@@ -176,6 +313,129 @@ export default function ProPage() {
       setIsLoading(false);
     }
   };
+
+  /*
+  =========================================================
+  STRIPE CUSTOMER PORTAL
+  =========================================================
+  */
+
+  const handlePortal = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/billing/portal`,
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      let data;
+
+      try {
+        data =
+          await response.json();
+      } catch {
+        throw new Error(
+          "The billing server returned an invalid response."
+        );
+      }
+
+      /*
+      -------------------------------------------------------
+      Not logged in
+      -------------------------------------------------------
+      */
+
+      if (response.status === 401) {
+        alert(
+          "Please log in to manage your subscription."
+        );
+
+        setIsLoading(false);
+
+        return;
+      }
+
+      /*
+      -------------------------------------------------------
+      No Stripe customer
+      -------------------------------------------------------
+      */
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to open subscription management."
+        );
+      }
+
+      /*
+      -------------------------------------------------------
+      Stripe portal URL
+      -------------------------------------------------------
+      */
+
+      if (!data?.url) {
+        throw new Error(
+          "Stripe did not return a portal URL."
+        );
+      }
+
+      /*
+      -------------------------------------------------------
+      Redirect to Stripe Customer Portal
+      -------------------------------------------------------
+      */
+
+      window.location.href =
+        data.url;
+    } catch (error) {
+      console.error(
+        "[FADES PRO] Portal failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to open subscription management."
+      );
+
+      setIsLoading(false);
+    }
+  };
+
+  /*
+  =========================================================
+  PRIMARY ACTION
+  =========================================================
+  */
+
+  const primaryAction = isPro
+    ? handlePortal
+    : handleUpgrade;
+
+  const primaryButtonText =
+    isCheckingAccount
+      ? "Checking account..."
+      : isLoading
+      ? isPro
+        ? "Opening portal..."
+        : "Opening checkout..."
+      : isPro
+      ? "Manage Subscription"
+      : "Get Fades Pro";
 
   return (
     <main className="pro-page">
@@ -201,13 +461,19 @@ export default function ProPage() {
           aria-label="Fades home"
         >
           <span className="brand-mark">
-            <img src="/logo.png" alt="" />
+            <img
+              src="/logo.png"
+              alt=""
+            />
           </span>
 
           <span>fades</span>
         </Link>
 
-        <Link href="/" className="back-link">
+        <Link
+          href="/"
+          className="back-link"
+        >
           <span
             className="back-arrow"
             aria-hidden="true"
@@ -233,7 +499,11 @@ export default function ProPage() {
             <span className="eyebrow-line" />
 
             <span className="eyebrow-status">
-              Available now
+              {isCheckingAccount
+                ? "Checking account"
+                : isPro
+                ? "Active subscription"
+                : "Available now"}
             </span>
           </div>
 
@@ -250,54 +520,81 @@ export default function ProPage() {
           </p>
 
           {/* =================================================
+              SUBSCRIPTION STATUS
+          ================================================= */}
+
+          {!isCheckingAccount &&
+            isPro && (
+              <div className="pro-status-card">
+                <div className="pro-status-icon">
+                  ✓
+                </div>
+
+                <div className="pro-status-content">
+                  <strong>
+                    You&apos;re subscribed to Fades Pro
+                  </strong>
+
+                  <span>
+                    Your Pro subscription is active.
+                    Manage billing, payment methods,
+                    or cancellation through Stripe.
+                  </span>
+                </div>
+              </div>
+            )}
+
+          {/* =================================================
               BILLING TOGGLE
           ================================================= */}
 
-          <div className="billing-wrapper">
-            <div
-              className="billing-control"
-              role="group"
-              aria-label="Billing period"
-            >
-              <button
-                type="button"
-                className={
-                  billing === "monthly"
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setBilling("monthly")
-                }
-                aria-pressed={
-                  billing === "monthly"
-                }
-                disabled={isLoading}
+          {!isPro && (
+            <div className="billing-wrapper">
+              <div
+                className="billing-control"
+                role="group"
+                aria-label="Billing period"
               >
-                Monthly
-              </button>
+                <button
+                  type="button"
+                  className={
+                    billing === "monthly"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    setBilling("monthly")
+                  }
+                  aria-pressed={
+                    billing === "monthly"
+                  }
+                  disabled={isLoading}
+                >
+                  Monthly
+                </button>
 
-              <button
-                type="button"
-                className={
-                  billing === "yearly"
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setBilling("yearly")
-                }
-                aria-pressed={
-                  billing === "yearly"
-                }
-                disabled={isLoading}
-              >
-                Yearly
+                <button
+                  type="button"
+                  className={
+                    billing === "yearly"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    setBilling("yearly")
+                  }
+                  aria-pressed={
+                    billing === "yearly"
+                  }
+                  disabled={isLoading}
+                >
+                  Yearly
 
-                <span>Save 17%</span>
-              </button>
+                  <span>Save 17%</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* =================================================
               PRICING CARD
@@ -353,19 +650,34 @@ export default function ProPage() {
               </div>
             </div>
 
-            {billing === "yearly" && (
+            {billing === "yearly" &&
+              !isPro && (
+                <div className="billing-note">
+                  <Check />
+
+                  <span>
+                    Billed $
+                    {yearlyPrice.toFixed(
+                      2
+                    )}
+                    {" "}
+                    USD yearly
+                    <strong>
+                      {" "}
+                      · Save $
+                      {yearlySavings}
+                    </strong>
+                  </span>
+                </div>
+              )}
+
+            {isPro && (
               <div className="billing-note">
                 <Check />
 
                 <span>
-                  Billed $
-                  {yearlyPrice.toFixed(2)}
-                  {" "}
-                  USD yearly
-                  <strong>
-                    {" "}
-                    · Save ${yearlySavings}
-                  </strong>
+                  Your Fades Pro subscription is
+                  <strong> active</strong>
                 </span>
               </div>
             )}
@@ -378,7 +690,9 @@ export default function ProPage() {
 
             <div className="included">
               <div className="included-heading">
-                <span>WHAT&apos;S INCLUDED</span>
+                <span>
+                  WHAT&apos;S INCLUDED
+                </span>
 
                 <span className="included-count">
                   04
@@ -388,6 +702,7 @@ export default function ProPage() {
               <div className="included-list">
                 <div>
                   <Check />
+
                   <span>
                     Higher AI usage limits
                   </span>
@@ -395,6 +710,7 @@ export default function ProPage() {
 
                 <div>
                   <Check />
+
                   <span>
                     Extended conversation context
                   </span>
@@ -402,6 +718,7 @@ export default function ProPage() {
 
                 <div>
                   <Check />
+
                   <span>
                     Priority access during high demand
                   </span>
@@ -409,6 +726,7 @@ export default function ProPage() {
 
                 <div>
                   <Check />
+
                   <span>
                     Premium Fades experience
                   </span>
@@ -416,23 +734,32 @@ export default function ProPage() {
               </div>
             </div>
 
+            {/* =================================================
+                PRIMARY BILLING BUTTON
+            ================================================= */}
+
             <button
               type="button"
               className="primary-button"
-              onClick={handleUpgrade}
-              disabled={isLoading}
+              onClick={primaryAction}
+              disabled={
+                isLoading ||
+                isCheckingAccount
+              }
             >
               <span>
-                {isLoading
-                  ? "Opening checkout..."
-                  : "Get Fades Pro"}
+                {primaryButtonText}
               </span>
 
               <span
                 className="button-arrow"
                 aria-hidden="true"
               >
-                {isLoading ? "…" : "↗"}
+                {isLoading
+                  ? "…"
+                  : isPro
+                  ? "↗"
+                  : "↗"}
               </span>
             </button>
 
@@ -444,7 +771,11 @@ export default function ProPage() {
                 ✓
               </span>
 
-              <span>Secure checkout</span>
+              <span>
+                {isPro
+                  ? "Manage through Stripe"
+                  : "Secure checkout"}
+              </span>
 
               <span
                 className="secure-dot"
@@ -453,21 +784,20 @@ export default function ProPage() {
                 ·
               </span>
 
-              <span>Cancel anytime</span>
+              <span>
+                {isPro
+                  ? "Cancel anytime"
+                  : "Cancel anytime"}
+              </span>
             </div>
           </div>
 
           <div className="hero-footnote">
-            <span>No complicated setup</span>
-
-            <span
-              className="footnote-separator"
-              aria-hidden="true"
-            >
-              ·
+            <span>
+              {isPro
+                ? "Your subscription is active"
+                : "No complicated setup"}
             </span>
-
-            <span>One Fades account</span>
 
             <span
               className="footnote-separator"
@@ -477,7 +807,20 @@ export default function ProPage() {
             </span>
 
             <span>
-              Upgrade when you&apos;re ready
+              One Fades account
+            </span>
+
+            <span
+              className="footnote-separator"
+              aria-hidden="true"
+            >
+              ·
+            </span>
+
+            <span>
+              {isPro
+                ? "Manage your subscription anytime"
+                : "Upgrade when you're ready"}
             </span>
           </div>
         </div>
@@ -544,36 +887,42 @@ export default function ProPage() {
         </div>
 
         <div className="features-grid">
-          {features.map((feature) => (
-            <article
-              className="feature-card"
-              key={feature.number}
-            >
-              <div className="feature-top">
-                <div className="feature-number">
-                  {feature.number}
+          {features.map(
+            (feature) => (
+              <article
+                className="feature-card"
+                key={feature.number}
+              >
+                <div className="feature-top">
+                  <div className="feature-number">
+                    {feature.number}
+                  </div>
+
+                  <div
+                    className="feature-mark"
+                    aria-hidden="true"
+                  >
+                    ↗
+                  </div>
+                </div>
+
+                <div className="feature-content">
+                  <h3>
+                    {feature.title}
+                  </h3>
+
+                  <p>
+                    {feature.description}
+                  </p>
                 </div>
 
                 <div
-                  className="feature-mark"
+                  className="feature-bottom-line"
                   aria-hidden="true"
-                >
-                  ↗
-                </div>
-              </div>
-
-              <div className="feature-content">
-                <h3>{feature.title}</h3>
-
-                <p>{feature.description}</p>
-              </div>
-
-              <div
-                className="feature-bottom-line"
-                aria-hidden="true"
-              />
-            </article>
-          ))}
+                />
+              </article>
+            )
+          )}
         </div>
       </section>
 
@@ -639,7 +988,9 @@ export default function ProPage() {
           </div>
 
           <div className="comparison-row">
-            <div>Conversation context</div>
+            <div>
+              Conversation context
+            </div>
 
             <div>Standard</div>
 
@@ -661,7 +1012,9 @@ export default function ProPage() {
           </div>
 
           <div className="comparison-row">
-            <div>Premium experience</div>
+            <div>
+              Premium experience
+            </div>
 
             <div>
               <Check muted />
@@ -673,15 +1026,28 @@ export default function ProPage() {
           </div>
 
           <div className="comparison-footer">
-            <span>Need more?</span>
+            <span>
+              {isPro
+                ? "Already subscribed?"
+                : "Need more?"}
+            </span>
 
             <button
               type="button"
-              onClick={handleUpgrade}
-              disabled={isLoading}
+              onClick={
+                isPro
+                  ? handlePortal
+                  : handleUpgrade
+              }
+              disabled={
+                isLoading ||
+                isCheckingAccount
+              }
             >
               {isLoading
                 ? "Opening..."
+                : isPro
+                ? "Manage Subscription"
                 : "Upgrade to Pro"}
 
               <span aria-hidden="true">
@@ -720,25 +1086,54 @@ export default function ProPage() {
         </div>
 
         <h2>
-          Keep going
-          <br />
-          <span>with Fades.</span>
+          {isPro ? (
+            <>
+              You&apos;re already
+              <br />
+              <span>with Fades Pro.</span>
+            </>
+          ) : (
+            <>
+              Keep going
+              <br />
+              <span>with Fades.</span>
+            </>
+          )}
         </h2>
 
         <p>
-          More room for questions, ideas, projects,
-          <br />
-          and everything in between.
+          {isPro ? (
+            <>
+              Your Pro subscription is active.
+              <br />
+              Manage your subscription whenever you need.
+            </>
+          ) : (
+            <>
+              More room for questions, ideas, projects,
+              <br />
+              and everything in between.
+            </>
+          )}
         </p>
 
         <button
           type="button"
           className="final-button"
-          onClick={handleUpgrade}
-          disabled={isLoading}
+          onClick={
+            isPro
+              ? handlePortal
+              : handleUpgrade
+          }
+          disabled={
+            isLoading ||
+            isCheckingAccount
+          }
         >
           {isLoading
-            ? "Opening checkout..."
+            ? "Opening..."
+            : isPro
+            ? "Manage Subscription"
             : "Get Fades Pro"}
 
           <span aria-hidden="true">
@@ -757,7 +1152,10 @@ export default function ProPage() {
           className="footer-brand"
         >
           <span className="footer-logo">
-            <img src="/logo.png" alt="" />
+            <img
+              src="/logo.png"
+              alt=""
+            />
           </span>
 
           <span>fades</span>
@@ -767,13 +1165,18 @@ export default function ProPage() {
           className="footer-links"
           aria-label="Footer navigation"
         >
-          <Link href="/">Home</Link>
+          <Link href="/">
+            Home
+          </Link>
+
           <Link href="/settings">
             Settings
           </Link>
+
           <Link href="/privacy">
             Privacy
           </Link>
+
           <Link href="/terms">
             Terms
           </Link>
@@ -786,3 +1189,4 @@ export default function ProPage() {
     </main>
   );
 }
+
