@@ -3248,20 +3248,24 @@ export default function Home() {
                 : "?"}
             </div>
 
-            <div className="user-info">
-              <strong>
-                {user
-                  ? user.displayName ||
-                    user.username
-                  : "Guest"}
-              </strong>
+<div className="user-info">
+  <strong className="user-name-line">
+    <span>
+      {user
+        ? user.displayName ||
+          user.username
+        : "Guest"}
+    </span>
 
-              <span>
-                {user
-                  ? user.email
-                  : "Guest mode"}
-              </span>
-            </div>
+    {user?.plan === "pro" && <ProBadge />}
+  </strong>
+
+  <span>
+    {user
+      ? user.email
+      : "Guest mode"}
+  </span>
+</div>
 
             <span className="user-arrow">
               ⌄
