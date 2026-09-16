@@ -88,7 +88,10 @@ export default function ProPage() {
        * });
        *
        * const { url } = await response.json();
-       * window.location.href = url;
+       *
+       * if (url) {
+       *   window.location.href = url;
+       * }
        */
 
       console.log(`Starting ${billing} Fades Pro checkout...`);
@@ -101,6 +104,10 @@ export default function ProPage() {
 
   return (
     <main className="pro-page">
+      {/* =====================================================
+          BACKGROUND
+      ===================================================== */}
+
       <div className="background-grid" />
       <div className="background-noise" />
 
@@ -108,10 +115,16 @@ export default function ProPage() {
       <div className="background-glow background-glow-left" />
       <div className="background-glow background-glow-bottom" />
 
-      {/* NAVIGATION */}
+      {/* =====================================================
+          NAVIGATION
+      ===================================================== */}
 
       <header className="pro-nav">
-        <Link href="/" className="brand-name" aria-label="Fades home">
+        <Link
+          href="/"
+          className="brand-name"
+          aria-label="Fades home"
+        >
           <span className="brand-mark">
             <img src="/logo.png" alt="" />
           </span>
@@ -120,20 +133,30 @@ export default function ProPage() {
         </Link>
 
         <Link href="/" className="back-link">
-          <span className="back-arrow">←</span>
-          Back to Fades
+          <span className="back-arrow" aria-hidden="true">
+            ←
+          </span>
+
+          <span>Back to Fades</span>
         </Link>
       </header>
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
       <section className="hero">
         <div className="hero-content">
           <div className="eyebrow">
             <span className="eyebrow-dot" />
+
             <span>Fades Pro</span>
+
             <span className="eyebrow-line" />
-            <span className="eyebrow-status">Available now</span>
+
+            <span className="eyebrow-status">
+              Available now
+            </span>
           </div>
 
           <h1>
@@ -148,13 +171,21 @@ export default function ProPage() {
             Everything you need to get more out of Fades.
           </p>
 
-          {/* BILLING */}
+          {/* =================================================
+              BILLING TOGGLE
+          ================================================= */}
 
           <div className="billing-wrapper">
-            <div className="billing-control" role="tablist">
+            <div
+              className="billing-control"
+              role="group"
+              aria-label="Billing period"
+            >
               <button
                 type="button"
-                className={billing === "monthly" ? "active" : ""}
+                className={
+                  billing === "monthly" ? "active" : ""
+                }
                 onClick={() => setBilling("monthly")}
                 aria-pressed={billing === "monthly"}
               >
@@ -163,28 +194,39 @@ export default function ProPage() {
 
               <button
                 type="button"
-                className={billing === "yearly" ? "active" : ""}
+                className={
+                  billing === "yearly" ? "active" : ""
+                }
                 onClick={() => setBilling("yearly")}
                 aria-pressed={billing === "yearly"}
               >
                 Yearly
+
                 <span>Save 17%</span>
               </button>
             </div>
           </div>
 
-          {/* PRICING CARD */}
+          {/* =================================================
+              PRICING CARD
+          ================================================= */}
 
           <div className="pricing-card">
-            <div className="pricing-card-glow" />
+            <div
+              className="pricing-card-glow"
+              aria-hidden="true"
+            />
 
             <div className="pricing-card-topline">
               <div className="plan-name">
                 <span className="plan-dot" />
+
                 FADES PRO
               </div>
 
-              <span className="popular-badge">PRO</span>
+              <span className="popular-badge">
+                PRO
+              </span>
             </div>
 
             <div className="pricing-top">
@@ -200,8 +242,8 @@ export default function ProPage() {
                 </h2>
 
                 <p>
-                  A premium Fades experience with more capacity,
-                  more context, and priority access.
+                  A premium Fades experience with more
+                  capacity, more context, and priority access.
                 </p>
               </div>
 
@@ -225,17 +267,27 @@ export default function ProPage() {
 
                 <span>
                   Billed ${yearlyPrice.toFixed(2)} USD yearly
-                  <strong> · Save ${yearlySavings}</strong>
+                  <strong>
+                    {" "}
+                    · Save ${yearlySavings}
+                  </strong>
                 </span>
               </div>
             )}
 
             <div className="card-divider" />
 
+            {/* =================================================
+                INCLUDED
+            ================================================= */}
+
             <div className="included">
               <div className="included-heading">
                 <span>WHAT&apos;S INCLUDED</span>
-                <span className="included-count">04</span>
+
+                <span className="included-count">
+                  04
+                </span>
               </div>
 
               <div className="included-list">
@@ -251,7 +303,9 @@ export default function ProPage() {
 
                 <div>
                   <Check />
-                  <span>Priority access during high demand</span>
+                  <span>
+                    Priority access during high demand
+                  </span>
                 </div>
 
                 <div>
@@ -268,33 +322,67 @@ export default function ProPage() {
               disabled={isLoading}
             >
               <span>
-                {isLoading ? "Opening checkout..." : "Get Fades Pro"}
+                {isLoading
+                  ? "Opening checkout..."
+                  : "Get Fades Pro"}
               </span>
 
-              <span className="button-arrow">
+              <span
+                className="button-arrow"
+                aria-hidden="true"
+              >
                 {isLoading ? "…" : "↗"}
               </span>
             </button>
 
             <div className="secure-note">
-              <span className="secure-icon">✓</span>
+              <span
+                className="secure-icon"
+                aria-hidden="true"
+              >
+                ✓
+              </span>
+
               <span>Secure checkout</span>
-              <span className="secure-dot">·</span>
+
+              <span
+                className="secure-dot"
+                aria-hidden="true"
+              >
+                ·
+              </span>
+
               <span>Cancel anytime</span>
             </div>
           </div>
 
           <div className="hero-footnote">
             <span>No complicated setup</span>
-            <span className="footnote-separator">·</span>
+
+            <span
+              className="footnote-separator"
+              aria-hidden="true"
+            >
+              ·
+            </span>
+
             <span>One Fades account</span>
-            <span className="footnote-separator">·</span>
+
+            <span
+              className="footnote-separator"
+              aria-hidden="true"
+            >
+              ·
+            </span>
+
             <span>Upgrade when you&apos;re ready</span>
           </div>
         </div>
       </section>
 
-      {/* WHY PRO */}
+      {/* =====================================================
+          WHY PRO
+      ===================================================== */}
 
       <section className="statement-section">
         <div className="section-line" />
@@ -302,7 +390,7 @@ export default function ProPage() {
         <div className="statement-grid">
           <div className="section-label">
             <span className="label-number">01</span>
-            WHY PRO
+            <span>WHY PRO</span>
           </div>
 
           <div className="statement-content">
@@ -313,20 +401,22 @@ export default function ProPage() {
             </h2>
 
             <p>
-              Pro gives you more room to work without changing the
-              Fades experience you already know.
+              Pro gives you more room to work without
+              changing the Fades experience you already know.
             </p>
           </div>
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* =====================================================
+          FEATURES
+      ===================================================== */}
 
       <section className="features-section">
         <div className="section-heading">
           <div className="section-label">
             <span className="label-number">02</span>
-            PRO FEATURES
+            <span>PRO FEATURES</span>
           </div>
 
           <div className="section-heading-row">
@@ -355,7 +445,10 @@ export default function ProPage() {
                   {feature.number}
                 </div>
 
-                <div className="feature-mark" aria-hidden="true">
+                <div
+                  className="feature-mark"
+                  aria-hidden="true"
+                >
                   ↗
                 </div>
               </div>
@@ -366,19 +459,24 @@ export default function ProPage() {
                 <p>{feature.description}</p>
               </div>
 
-              <div className="feature-bottom-line" />
+              <div
+                className="feature-bottom-line"
+                aria-hidden="true"
+              />
             </article>
           ))}
         </div>
       </section>
 
-      {/* PLANS */}
+      {/* =====================================================
+          PLAN COMPARISON
+      ===================================================== */}
 
       <section className="comparison-section">
         <div className="section-heading centered">
           <div className="section-label">
             <span className="label-number">03</span>
-            PLANS
+            <span>PLANS</span>
           </div>
 
           <h2>
@@ -397,7 +495,9 @@ export default function ProPage() {
         <div className="comparison-card">
           <div className="comparison-head">
             <div>FEATURE</div>
+
             <div>FREE</div>
+
             <div className="pro-column">
               <span>PRO</span>
               <small>POPULAR</small>
@@ -466,18 +566,29 @@ export default function ProPage() {
             <button
               type="button"
               onClick={handleUpgrade}
+              disabled={isLoading}
             >
-              Upgrade to Pro <span>↗</span>
+              {isLoading
+                ? "Opening..."
+                : "Upgrade to Pro"}
+
+              <span aria-hidden="true">↗</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* FINAL CTA */}
+      {/* =====================================================
+          FINAL CTA
+      ===================================================== */}
 
       <section className="final-section">
         <div className="final-orb">
-          <div className="final-orb-ring" />
+          <div
+            className="final-orb-ring"
+            aria-hidden="true"
+          />
+
           <div className="final-orb-inner">
             <img src="/logo.png" alt="Fades" />
           </div>
@@ -485,7 +596,7 @@ export default function ProPage() {
 
         <div className="section-label">
           <span className="label-number">04</span>
-          FADE INTO MORE
+          <span>FADE INTO MORE</span>
         </div>
 
         <h2>
@@ -506,12 +617,17 @@ export default function ProPage() {
           onClick={handleUpgrade}
           disabled={isLoading}
         >
-          {isLoading ? "Opening checkout..." : "Get Fades Pro"}
-          <span>↗</span>
+          {isLoading
+            ? "Opening checkout..."
+            : "Get Fades Pro"}
+
+          <span aria-hidden="true">↗</span>
         </button>
       </section>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <footer className="pro-footer">
         <Link href="/" className="footer-brand">
@@ -522,12 +638,15 @@ export default function ProPage() {
           <span>fades</span>
         </Link>
 
-        <div className="footer-links">
+        <nav
+          className="footer-links"
+          aria-label="Footer navigation"
+        >
           <Link href="/">Home</Link>
           <Link href="/settings">Settings</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
-        </div>
+        </nav>
 
         <div className="footer-copy">
           © {new Date().getFullYear()} Fades
@@ -536,3 +655,4 @@ export default function ProPage() {
     </main>
   );
 }
+
