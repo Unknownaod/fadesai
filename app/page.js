@@ -279,11 +279,50 @@ export default function Home() {
     setAuthDisplayName,
   ] = useState("");
 
+  /*
+   * Email verification state
+   */
+  const [
+    verificationOpen,
+    setVerificationOpen,
+  ] = useState(false);
+
+  const [
+    verificationEmail,
+    setVerificationEmail,
+  ] = useState("");
+
+  const [
+    verificationCode,
+    setVerificationCode,
+  ] = useState("");
+
+  const [
+    verificationSubmitting,
+    setVerificationSubmitting,
+  ] = useState(false);
+
+  const [
+    verificationError,
+    setVerificationError,
+  ] = useState("");
+
+  const [
+    resendSubmitting,
+    setResendSubmitting,
+  ] = useState(false);
+
+  const [
+    resendCooldown,
+    setResendCooldown,
+  ] = useState(0);
+
   /* Chat editing */
   const [
     editingChatId,
     setEditingChatId,
   ] = useState(null);
+
   const [
     editingTitle,
     setEditingTitle,
@@ -363,12 +402,6 @@ export default function Home() {
 
         if (!response.ok) {
           setUser(null);
-
-          /*
-           * No authenticated session means
-           * there must be no cloud chat state
-           * left in memory.
-           */
           setChats([]);
           setMessages([]);
           setActiveChatId(null);
@@ -385,11 +418,6 @@ export default function Home() {
             ? data.user
             : null;
 
-        /*
-         * Start with an empty chat state.
-         * Cloud chats are loaded separately
-         * after authentication.
-         */
         setChats([]);
         setMessages([]);
         setActiveChatId(null);
@@ -421,14 +449,13 @@ export default function Home() {
   useEffect(() => {
     try {
       /*
-       * IMPORTANT:
-       *
        * Chat history is intentionally NOT
-       * loaded from localStorage anymore.
+       * loaded from localStorage.
        *
-       * Guests have temporary chats only.
+       * Guest chats exist only in React memory.
        *
-       * Account chats come from the backend.
+       * Account chats are loaded from
+       * the backend after authentication.
        */
 
       const savedSettings =
@@ -483,6 +510,26 @@ export default function Home() {
   ]);
 
   /* -------------------------------------------------------------- */
+  /* Verification cooldown                                           */
+  /* -------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setResendCooldown(
+        (current) =>
+          Math.max(0, current - 1)
+      );
+    }, 1000);
+
+    return () =>
+      clearInterval(timer);
+  }, [resendCooldown]);
+
+  /* -------------------------------------------------------------- */
   /* Load account chats                                              */
   /* -------------------------------------------------------------- */
 
@@ -492,10 +539,6 @@ export default function Home() {
 
       setCloudChatsLoading(true);
 
-      /*
-       * Immediately clear whatever was
-       * previously in memory.
-       */
       setChats([]);
       setMessages([]);
       setActiveChatId(null);
@@ -537,17 +580,8 @@ export default function Home() {
             .map(normalizeChat)
             .filter(Boolean);
 
-        /*
-         * Only the authenticated user's
-         * backend chats are now placed into
-         * React state.
-         */
         setChats(normalized);
 
-        /*
-         * Open the most recently updated
-         * account chat automatically.
-         */
         if (normalized.length > 0) {
           const firstChat =
             normalized[0];
@@ -927,13 +961,6 @@ export default function Home() {
 
       let chat = localChat;
 
-      /*
-       * Only authenticated users create
-       * persistent backend chats.
-       *
-       * Guests get a temporary React-state
-       * chat that disappears when they leave.
-       */
       if (user) {
         try {
           chat =
@@ -1047,10 +1074,6 @@ export default function Home() {
           updatedAt: Date.now(),
         };
 
-        /*
-         * Only signed-in users get
-         * a backend chat.
-         */
         if (user) {
           try {
             const cloudChat =
@@ -1078,10 +1101,6 @@ export default function Home() {
           }
         }
 
-        /*
-         * Guest chat exists only in
-         * React memory.
-         */
         setChats((current) => [
           localChat,
           ...current,
@@ -1451,16 +1470,6 @@ export default function Home() {
             title
           );
 
-          /*
-           * CRITICAL:
-           *
-           * Only authenticated users
-           * save conversations.
-           *
-           * Guests never call the backend
-           * and never write chat data
-           * to localStorage.
-           */
           if (user) {
             const chat =
               chats.find(
@@ -1545,10 +1554,6 @@ export default function Home() {
               errorMessages
             );
 
-            /*
-             * Only save error messages
-             * for authenticated users.
-             */
             if (user) {
               await saveCloudMessages(
                 currentChatId,
@@ -1675,10 +1680,6 @@ export default function Home() {
       setMessage("");
     }
 
-    /*
-     * Only account chats exist in
-     * the backend.
-     */
     if (user) {
       deleteCloudChat(chatId);
     }
@@ -1799,10 +1800,6 @@ export default function Home() {
     if (loading) return;
 
     if (user) {
-      /*
-       * Delete account chats from
-       * the backend.
-       */
       Promise.all(
         chats.map((chat) =>
           deleteCloudChat(
@@ -1817,23 +1814,12 @@ export default function Home() {
       );
     }
 
-    /*
-     * Regardless of authentication state,
-     * clear the in-memory chat state.
-     */
     setChats([]);
     setMessages([]);
     setActiveChatId(null);
     setMessage("");
     setClearConfirmOpen(false);
     setSettingsOpen(false);
-
-    /*
-     * There is intentionally NO
-     * localStorage chat deletion here
-     * because chats are never stored
-     * in localStorage anymore.
-     */
 
     showToast(
       "All chats cleared."
@@ -2020,10 +2006,6 @@ export default function Home() {
               Date.now(),
           }));
 
-      /*
-       * Signed-in imports are saved
-       * to the account.
-       */
       if (user) {
         for (
           const imported of
@@ -2053,11 +2035,6 @@ export default function Home() {
         }
       }
 
-      /*
-       * Guest imports only exist in
-       * React memory. They are NOT saved
-       * anywhere.
-       */
       setChats((current) => [
         ...sanitized,
         ...current,
@@ -2111,6 +2088,25 @@ export default function Home() {
     setProfileOpen(false);
   }
 
+  function openVerification(
+    email
+  ) {
+    setVerificationEmail(
+      email?.trim() || ""
+    );
+
+    setVerificationCode("");
+    setVerificationError("");
+    setVerificationSubmitting(
+      false
+    );
+    setResendSubmitting(false);
+    setResendCooldown(60);
+
+    setAuthOpen(false);
+    setVerificationOpen(true);
+  }
+
   async function submitAuth(
     event
   ) {
@@ -2122,11 +2118,7 @@ export default function Home() {
     setAuthSubmitting(true);
 
     /*
-     * Clear guest state BEFORE authentication.
-     *
-     * This prevents guest chats from
-     * remaining visible while the
-     * account chats are loading.
+     * Clear guest state before authentication.
      */
     setChats([]);
     setMessages([]);
@@ -2182,6 +2174,33 @@ export default function Home() {
             () => null
           );
 
+      /*
+       * Login attempted before email
+       * verification.
+       */
+      if (
+        response.status ===
+          403 &&
+        data?.error ===
+          "EMAIL_NOT_VERIFIED"
+      ) {
+        setAuthSubmitting(
+          false
+        );
+
+        setVerificationEmail(
+          authEmail.trim()
+        );
+
+        setVerificationCode("");
+        setVerificationError("");
+
+        setAuthOpen(false);
+        setVerificationOpen(true);
+
+        return;
+      }
+
       if (
         !response.ok ||
         !data?.success
@@ -2193,7 +2212,45 @@ export default function Home() {
       }
 
       /*
-       * setUser triggers loadCloudChats().
+       * Signup intentionally does NOT
+       * create a session.
+       *
+       * The backend sends the verification
+       * code and asks us to verify it first.
+       */
+      if (
+        authMode ===
+          "signup" &&
+        data?.requiresEmailVerification
+      ) {
+        const email =
+          authEmail.trim();
+
+        setAuthSubmitting(
+          false
+        );
+
+        setVerificationEmail(
+          email
+        );
+
+        setVerificationCode("");
+        setVerificationError("");
+
+        setAuthOpen(false);
+        setVerificationOpen(true);
+
+        setResendCooldown(60);
+
+        showToast(
+          "Verification code sent to your email."
+        );
+
+        return;
+      }
+
+      /*
+       * Successful login.
        */
       setUser(data.user);
 
@@ -2205,9 +2262,7 @@ export default function Home() {
       setAuthDisplayName("");
 
       showToast(
-        authMode === "login"
-          ? "Welcome back."
-          : "Your Fades account is ready."
+        "Welcome back."
       );
     } catch (error) {
       console.error(
@@ -2220,11 +2275,6 @@ export default function Home() {
           "Unable to connect to the Fades account service."
       );
 
-      /*
-       * Authentication failed, so keep
-       * the application as a guest with
-       * an empty temporary chat state.
-       */
       setUser(null);
       setChats([]);
       setMessages([]);
@@ -2236,10 +2286,278 @@ export default function Home() {
     }
   }
 
+  /* -------------------------------------------------------------- */
+  /* Verify email                                                    */
+  /* -------------------------------------------------------------- */
+
+  async function submitVerification(
+    event
+  ) {
+    event.preventDefault();
+
+    if (
+      verificationSubmitting
+    ) {
+      return;
+    }
+
+    const email =
+      verificationEmail.trim();
+
+    const code =
+      verificationCode.trim();
+
+    if (!email) {
+      setVerificationError(
+        "Enter the email address for your account."
+      );
+
+      return;
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+      setVerificationError(
+        "Enter the 6-digit verification code."
+      );
+
+      return;
+    }
+
+    setVerificationError("");
+    setVerificationSubmitting(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          `${API_URL}/auth/verify-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            credentials:
+              "include",
+            body: JSON.stringify({
+              email,
+              code,
+            }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            "That verification code is invalid."
+        );
+      }
+
+      /*
+       * Backend creates the session after
+       * successful verification.
+       */
+      setUser(data.user);
+
+      setVerificationOpen(
+        false
+      );
+
+      setVerificationEmail("");
+      setVerificationCode("");
+      setVerificationError("");
+
+      setChats([]);
+      setMessages([]);
+      setActiveChatId(null);
+
+      showToast(
+        "Email verified. Welcome to Fades."
+      );
+    } catch (error) {
+      console.error(
+        "Email verification error:",
+        error
+      );
+
+      let message =
+        error?.message ||
+        "Unable to verify your email.";
+
+      /*
+       * Friendly handling for common
+       * backend verification errors.
+       */
+      if (
+        message ===
+        "VERIFICATION_CODE_EXPIRED"
+      ) {
+        message =
+          "That code has expired. Request a new code.";
+      }
+
+      if (
+        message ===
+        "VERIFICATION_TOO_MANY_ATTEMPTS"
+      ) {
+        message =
+          "Too many incorrect attempts. Request a new code.";
+      }
+
+      if (
+        message ===
+        "INVALID_VERIFICATION_CODE"
+      ) {
+        message =
+          "That code is incorrect. Check your email and try again.";
+      }
+
+      setVerificationError(
+        message
+      );
+    } finally {
+      setVerificationSubmitting(
+        false
+      );
+    }
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Resend verification                                             */
+  /* -------------------------------------------------------------- */
+
+  async function resendVerification() {
+    if (
+      resendSubmitting ||
+      resendCooldown > 0
+    ) {
+      return;
+    }
+
+    const email =
+      verificationEmail.trim();
+
+    if (!email) {
+      setVerificationError(
+        "Enter your email address first."
+      );
+
+      return;
+    }
+
+    setVerificationError("");
+    setResendSubmitting(true);
+
+    try {
+      const response =
+        await fetch(
+          `${API_URL}/auth/resend-verification`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            credentials:
+              "include",
+            body: JSON.stringify({
+              email,
+            }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            "Unable to send a new verification code."
+        );
+      }
+
+      setVerificationCode("");
+      setResendCooldown(60);
+
+      showToast(
+        "A new verification code was sent."
+      );
+    } catch (error) {
+      console.error(
+        "Resend verification error:",
+        error
+      );
+
+      let message =
+        error?.message ||
+        "Unable to send a new verification code.";
+
+      if (
+        message ===
+        "VERIFICATION_RESEND_COOLDOWN"
+      ) {
+        message =
+          "Please wait before requesting another code.";
+      }
+
+      setVerificationError(
+        message
+      );
+    } finally {
+      setResendSubmitting(
+        false
+      );
+    }
+  }
+
+  function backToAuth() {
+    if (
+      verificationSubmitting ||
+      resendSubmitting
+    ) {
+      return;
+    }
+
+    setVerificationOpen(
+      false
+    );
+
+    setVerificationCode("");
+    setVerificationError("");
+
+    setAuthMode("login");
+    setAuthError("");
+
+    setAuthEmail(
+      verificationEmail
+    );
+
+    setAuthPassword("");
+
+    setAuthOpen(true);
+  }
+
   async function logout() {
-    /*
-     * Stop any active generation first.
-     */
     abortControllerRef.current?.abort();
 
     try {
@@ -2258,15 +2576,6 @@ export default function Home() {
       );
     }
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT copy account chats into
-     * localStorage.
-     *
-     * Account chats belong exclusively
-     * to the authenticated account.
-     */
     setUser(null);
 
     setChats([]);
@@ -2349,8 +2658,15 @@ export default function Home() {
         setModelOpen(false);
         setClearConfirmOpen(false);
 
-        if (!authSubmitting) {
+        if (
+          !authSubmitting &&
+          !verificationSubmitting &&
+          !resendSubmitting
+        ) {
           setAuthOpen(false);
+          setVerificationOpen(
+            false
+          );
         }
       }
     }
@@ -2367,6 +2683,8 @@ export default function Home() {
       );
   }, [
     authSubmitting,
+    verificationSubmitting,
+    resendSubmitting,
     createChat,
   ]);
 
@@ -3365,7 +3683,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Auth */}
+      {/* ---------------------------------------------------------- */}
+      {/* Auth                                                        */}
+      {/* ---------------------------------------------------------- */}
+
       {authOpen && (
         <div
           className="modal-backdrop"
@@ -3621,6 +3942,211 @@ export default function Home() {
 
             <small className="login-note">
               Guest chats are temporary and are not saved.
+            </small>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------- */}
+      {/* Email Verification                                          */}
+      {/* ---------------------------------------------------------- */}
+
+      {verificationOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => {
+            if (
+              !verificationSubmitting &&
+              !resendSubmitting
+            ) {
+              setVerificationOpen(
+                false
+              );
+            }
+          }}
+        >
+          <div
+            className="login-modal verification-modal"
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close"
+              disabled={
+                verificationSubmitting ||
+                resendSubmitting
+              }
+              onClick={() =>
+                setVerificationOpen(
+                  false
+                )
+              }
+            >
+              ×
+            </button>
+
+            <div className="modal-logo">
+              f
+            </div>
+
+            <h2>
+              Verify your email
+            </h2>
+
+            <p>
+              We sent a 6-digit
+              verification code to
+              <strong>
+                {" "}
+                {verificationEmail}
+              </strong>
+              .
+            </p>
+
+            <form
+              className="auth-form"
+              onSubmit={
+                submitVerification
+              }
+            >
+              {verificationError && (
+                <div className="auth-error">
+                  {verificationError}
+                </div>
+              )}
+
+              <div className="auth-field">
+                <label htmlFor="fades-verification-code">
+                  Verification code
+                </label>
+
+                <input
+                  id="fades-verification-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={
+                    verificationCode
+                  }
+                  onChange={(
+                    event
+                  ) => {
+                    const value =
+                      event.target.value
+                        .replace(
+                          /\D/g,
+                          ""
+                        )
+                        .slice(
+                          0,
+                          6
+                        );
+
+                    setVerificationCode(
+                      value
+                    );
+                    setVerificationError(
+                      ""
+                    );
+                  }}
+                  placeholder="000000"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  autoFocus
+                  required
+                  disabled={
+                    verificationSubmitting
+                  }
+                  style={{
+                    textAlign:
+                      "center",
+                    letterSpacing:
+                      "0.35em",
+                    fontSize:
+                      "1.35rem",
+                    fontWeight:
+                      700,
+                  }}
+                />
+              </div>
+
+              <button
+                className="auth-submit"
+                type="submit"
+                disabled={
+                  verificationSubmitting ||
+                  verificationCode.length !==
+                    6
+                }
+              >
+                {verificationSubmitting
+                  ? "Verifying..."
+                  : "Verify email"}
+              </button>
+            </form>
+
+            <div
+              style={{
+                textAlign:
+                  "center",
+                marginTop:
+                  "18px",
+              }}
+            >
+              <p
+                style={{
+                  marginBottom:
+                    "10px",
+                }}
+              >
+                Didn't receive the
+                code?
+              </p>
+
+              <button
+                type="button"
+                className="guest-button"
+                disabled={
+                  resendSubmitting ||
+                  resendCooldown > 0
+                }
+                onClick={
+                  resendVerification
+                }
+              >
+                {resendSubmitting
+                  ? "Sending..."
+                  : resendCooldown >
+                    0
+                  ? `Resend code in ${resendCooldown}s`
+                  : "Resend code"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="guest-button"
+              disabled={
+                verificationSubmitting ||
+                resendSubmitting
+              }
+              onClick={
+                backToAuth
+              }
+              style={{
+                marginTop:
+                  "10px",
+              }}
+            >
+              Back to sign in
+            </button>
+
+            <small className="login-note">
+              Your verification code
+              expires after 10 minutes.
             </small>
           </div>
         </div>
@@ -4080,4 +4606,3 @@ export default function Home() {
     </main>
   );
 }
-
