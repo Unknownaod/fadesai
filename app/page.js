@@ -3476,60 +3476,40 @@ export default function Home() {
                 something real.
               </p>
 
-              <div className="suggestions">
-                {SUGGESTIONS.map(
-                  (item) => (
-                    <button
-                      key={
-                        item.title
-                      }
-                      className="suggestion"
-                      type="button"
-                      onClick={() =>
-                        applySuggestion(
-                          item.prompt
-                        )
-                      }
-                    >
-                      <strong>
-                        {
-                          item.title
-                        }
-                      </strong>
+<div className="suggestions">
+  {SUGGESTIONS.map((item) => (
+    <button
+      key={item.title}
+      className="suggestion"
+      type="button"
+      onClick={() => applySuggestion(item.prompt)}
+    >
+      <strong>{item.title}</strong>
 
-                      <span>
-                        {
-                          item.description
-                        }
-                      </span>
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
+      <span>{item.description}</span>
+    </button>
+  ))}
 
-<button
-  type="button"
-  className="suggestion-card"
-  onClick={() => {
-    if (isPro) {
+  <button
+    type="button"
+    className="suggestion"
+    onClick={() => {
       window.location.href = "/pro";
-    } else {
-      window.location.href = "/pro";
-    }
-  }}
->
-  <strong>
-    {isPro ? "Manage Pro" : "Upgrade to Pro"}
-  </strong>
+    }}
+  >
+    <strong>
+      {user?.plan === "pro"
+        ? "Manage Pro"
+        : "Upgrade to Pro"}
+    </strong>
 
-  <span>
-    {isPro
-      ? "Manage your Fades Pro subscription"
-      : "Unlock more with Fades Pro"}
-  </span>
-</button>
-
+    <span>
+      {user?.plan === "pro"
+        ? "Manage your Fades Pro subscription"
+        : "Unlock more with Fades Pro"}
+    </span>
+  </button>
+</div>
           ) : (
             <div
               className="messages"
