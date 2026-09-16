@@ -1,0 +1,681 @@
+.settings-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.035),
+      transparent 30%
+    ),
+    #090909;
+  color: #f5f5f5;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.settings-shell {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 34px 0 80px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+  margin-bottom: 42px;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  font-size: 13px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.settings-title h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-weight: 650;
+}
+
+.settings-title p {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 205px minmax(0, 1fr);
+  gap: 55px;
+  align-items: start;
+}
+
+.settings-sidebar {
+  position: sticky;
+  top: 25px;
+}
+
+.sidebar-label {
+  margin: 0 0 11px 12px;
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-nav-item {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.52);
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.settings-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.settings-nav-item.active {
+  background: rgba(255, 255, 255, 0.075);
+  color: #fff;
+  font-weight: 550;
+}
+
+.settings-content {
+  min-width: 0;
+  max-width: 760px;
+}
+
+.settings-section {
+  animation: settings-fade-in 0.2s ease;
+}
+
+@keyframes settings-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 620;
+  letter-spacing: -0.025em;
+}
+
+.section-heading p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-card,
+.account-card,
+.pro-card,
+.danger-card,
+.reset-card,
+.empty-card,
+.loading-card,
+.about-card {
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 15px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.038),
+      rgba(255, 255, 255, 0.018)
+    );
+  box-shadow:
+    0 16px 50px rgba(0, 0, 0, 0.18);
+}
+
+.settings-card {
+  overflow: hidden;
+}
+
+.setting-row {
+  min-height: 76px;
+  padding: 17px 19px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.setting-row:last-child {
+  border-bottom: 0;
+}
+
+.setting-title {
+  display: block;
+  color: rgba(255, 255, 255, 0.91);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.setting-description {
+  display: block;
+  max-width: 520px;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.account-card {
+  min-height: 84px;
+  padding: 17px 19px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.account-avatar {
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.14),
+      rgba(255, 255, 255, 0.045)
+    );
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.account-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.account-name-row strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-email {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pro-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 5px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.045)
+    );
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.plan-pill,
+.status-pill,
+.verified-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 25px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.plan-pill.pro {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.status-pill,
+.verified-pill {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.pro-card {
+  margin-top: 14px;
+  padding: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pro-card-title {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pro-card-description {
+  max-width: 470px;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button {
+  height: 35px;
+  padding: 0 13px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.primary-button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #f5f5f5;
+  color: #090909;
+}
+
+.primary-button:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.secondary-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.17);
+}
+
+.danger-card {
+  margin-top: 14px;
+  padding: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.danger-title {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.danger-description {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.danger-button {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.danger-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.danger-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-select {
+  min-width: 120px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  outline: none;
+  background: #151515;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.settings-select:focus {
+  border-color: rgba(255, 255, 255, 0.23);
+}
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 23px;
+  flex: 0 0 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.toggle span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.68);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.toggle.active {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.toggle.active span {
+  transform: translateX(17px);
+  background: #fff;
+}
+
+.empty-card,
+.loading-card {
+  min-height: 170px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty-description {
+  margin: 7px 0 17px;
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 12px;
+}
+
+.loading-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 12px;
+}
+
+.loading-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  animation: settings-spin 0.7s linear infinite;
+}
+
+@keyframes settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.reset-card {
+  margin-top: 14px;
+  padding: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.reset-title {
+  color: rgba(255, 255, 255, 0.87);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.reset-description {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+.about-card {
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.about-logo {
+  width: 55px;
+  height: 55px;
+  flex: 0 0 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.035)
+    );
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.about-content h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.about-content p {
+  margin: 4px 0 7px;
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 12px;
+}
+
+.about-content span {
+  color: rgba(255, 255, 255, 0.27);
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  .settings-shell {
+    width: min(
+      100% - 24px,
+      760px
+    );
+    padding-top: 22px;
+  }
+
+  .settings-header {
+    display: block;
+    margin-bottom: 30px;
+  }
+
+  .back-button {
+    margin-bottom: 24px;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  .settings-sidebar {
+    position: static;
+  }
+
+  .settings-nav {
+    display: grid;
+    grid-template-columns: repeat(
+      2,
+      minmax(0, 1fr)
+    );
+    gap: 4px;
+  }
+
+  .settings-content {
+    max-width: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .settings-shell {
+    width: calc(100% - 18px);
+  }
+
+  .settings-title h1 {
+    font-size: 26px;
+  }
+
+  .settings-nav {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .setting-row,
+  .account-card,
+  .pro-card,
+  .danger-card,
+  .reset-card {
+    align-items: flex-start;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    gap: 13px;
+  }
+
+  .account-card {
+    flex-wrap: wrap;
+  }
+
+  .account-info {
+    width: calc(100% - 60px);
+  }
+
+  .account-card .plan-pill {
+    margin-left: 59px;
+  }
+
+  .pro-card,
+  .danger-card,
+  .reset-card {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .danger-button {
+    width: 100%;
+  }
+
+  .settings-select {
+    width: 100%;
+  }
+}
