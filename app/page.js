@@ -10,7 +10,6 @@ import {
 import ReactMarkdown from "react-markdown";
 import "./globals.css";
 
-const STORAGE_KEY = "fades.chats.v2";
 const SETTINGS_KEY = "fades.settings.v1";
 const API_URL = "https://api.fades.lol";
 const MAX_TEXTAREA_HEIGHT = 180;
@@ -28,22 +27,26 @@ const SUGGESTIONS = [
   {
     title: "Explain something",
     description: "Break down a complicated topic",
-    prompt: "Explain something complicated to me in a simple way.",
+    prompt:
+      "Explain something complicated to me in a simple way.",
   },
   {
     title: "Build something",
     description: "Create code, websites, and more",
-    prompt: "Help me build something from scratch.",
+    prompt:
+      "Help me build something from scratch.",
   },
   {
     title: "Get creative",
     description: "Brainstorm ideas and possibilities",
-    prompt: "Give me some creative ideas for a project.",
+    prompt:
+      "Give me some creative ideas for a project.",
   },
   {
     title: "Learn something",
     description: "Understand something new",
-    prompt: "Teach me something interesting that I probably don't know.",
+    prompt:
+      "Teach me something interesting that I probably don't know.",
   },
 ];
 
@@ -59,7 +62,9 @@ function createId(prefix = "id") {
     return `${prefix}_${crypto.randomUUID()}`;
   }
 
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  return `${prefix}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2)}`;
 }
 
 function formatDate(timestamp) {
@@ -90,8 +95,12 @@ function formatTime(timestamp) {
 }
 
 function downloadFile(filename, content, type) {
-  const blob = new Blob([content], { type });
+  const blob = new Blob([content], {
+    type,
+  });
+
   const url = URL.createObjectURL(blob);
+
   const anchor = document.createElement("a");
 
   anchor.href = url;
@@ -105,17 +114,41 @@ function downloadFile(filename, content, type) {
 }
 
 function normalizeMessage(raw) {
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
 
   const content =
-    typeof raw.content === "string" ? raw.content : "";
+    typeof raw.content === "string"
+      ? raw.content
+      : "";
 
-  if (!content) return null;
+  if (!content) {
+    return null;
+  }
+
+  const role =
+    raw.role === "user"
+      ? "user"
+      : raw.role === "assistant"
+      ? "assistant"
+      : null;
+
+  if (!role) {
+    return null;
+  }
 
   return {
-    id: raw.id || createId("message"),
-    role: raw.role === "user" ? "user" : "assistant",
+    id:
+      typeof raw.id === "string" &&
+      raw.id
+        ? raw.id
+        : createId("message"),
+
+    role,
+
     content,
+
     createdAt:
       typeof raw.createdAt === "number"
         ? raw.createdAt
@@ -124,23 +157,42 @@ function normalizeMessage(raw) {
 }
 
 function normalizeChat(raw) {
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
 
   return {
-    id: raw.id || createId("chat"),
+    id:
+      typeof raw.id === "string" &&
+      raw.id
+        ? raw.id
+        : createId("chat"),
+
     title:
-      typeof raw.title === "string" && raw.title.trim()
+      typeof raw.title === "string" &&
+      raw.title.trim()
         ? raw.title
         : "New chat",
-    messages: Array.isArray(raw.messages)
-      ? raw.messages.map(normalizeMessage).filter(Boolean)
+
+    messages: Array.isArray(
+      raw.messages
+    )
+      ? raw.messages
+          .map(normalizeMessage)
+          .filter(Boolean)
       : [],
+
     pinned: Boolean(raw.pinned),
-    favorite: Boolean(raw.favorite),
+
+    favorite: Boolean(
+      raw.favorite
+    ),
+
     createdAt:
       typeof raw.createdAt === "number"
         ? raw.createdAt
         : Date.now(),
+
     updatedAt:
       typeof raw.updatedAt === "number"
         ? raw.updatedAt
@@ -150,7 +202,11 @@ function normalizeChat(raw) {
 
 const MARKDOWN_COMPONENTS = {
   a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noreferrer">
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+    >
       {children}
     </a>
   ),
@@ -165,142 +221,235 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [chats, setChats] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [activeChatId, setActiveChatId] =
+    useState(null);
+  const [loading, setLoading] =
+    useState(false);
   const [search, setSearch] = useState("");
 
   /* Hydration */
-  const [hydrated, setHydrated] = useState(false);
+  const [hydrated, setHydrated] =
+    useState(false);
 
   /* Account chat loading */
-  const [cloudChatsLoading, setCloudChatsLoading] = useState(false);
+  const [
+    cloudChatsLoading,
+    setCloudChatsLoading,
+  ] = useState(false);
 
   /* UI state */
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+  const [profileOpen, setProfileOpen] =
+    useState(false);
+  const [settingsOpen, setSettingsOpen] =
+    useState(false);
+  const [aboutOpen, setAboutOpen] =
+    useState(false);
+  const [modelOpen, setModelOpen] =
+    useState(false);
+  const [
+    clearConfirmOpen,
+    setClearConfirmOpen,
+  ] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   /* Auth state */
   const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
-  const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authDisplayName, setAuthDisplayName] = useState("");
+  const [authLoading, setAuthLoading] =
+    useState(true);
+  const [authOpen, setAuthOpen] =
+    useState(false);
+  const [authMode, setAuthMode] =
+    useState("login");
+  const [
+    authSubmitting,
+    setAuthSubmitting,
+  ] = useState(false);
+  const [authError, setAuthError] =
+    useState("");
+  const [authEmail, setAuthEmail] =
+    useState("");
+  const [authUsername, setAuthUsername] =
+    useState("");
+  const [authPassword, setAuthPassword] =
+    useState("");
+  const [
+    authDisplayName,
+    setAuthDisplayName,
+  ] = useState("");
 
   /* Chat editing */
-  const [editingChatId, setEditingChatId] = useState(null);
-  const [editingTitle, setEditingTitle] = useState("");
+  const [
+    editingChatId,
+    setEditingChatId,
+  ] = useState(null);
+  const [
+    editingTitle,
+    setEditingTitle,
+  ] = useState("");
 
   /* Settings */
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] =
+    useState(DEFAULT_SETTINGS);
 
   /* Refs */
   const textareaRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const messagesContainerRef = useRef(null);
+  const messagesContainerRef =
+    useRef(null);
   const fileInputRef = useRef(null);
-  const abortControllerRef = useRef(null);
+  const abortControllerRef =
+    useRef(null);
   const searchInputRef = useRef(null);
-  const stickToBottomRef = useRef(true);
-  const toastTimersRef = useRef(new Map());
+  const stickToBottomRef =
+    useRef(true);
+  const toastTimersRef = useRef(
+    new Map()
+  );
 
   /* -------------------------------------------------------------- */
   /* Toasts                                                          */
   /* -------------------------------------------------------------- */
 
-  const showToast = useCallback((text, type = "success") => {
-    const id = createId("toast");
+  const showToast = useCallback(
+    (text, type = "success") => {
+      const id = createId("toast");
 
-    setToasts((current) => [
-      ...current.slice(-2),
-      { id, text, type },
-    ]);
+      setToasts((current) => [
+        ...current.slice(-2),
+        {
+          id,
+          text,
+          type,
+        },
+      ]);
 
-    const timer = setTimeout(() => {
-      setToasts((current) =>
-        current.filter((item) => item.id !== id)
+      const timer = setTimeout(() => {
+        setToasts((current) =>
+          current.filter(
+            (item) => item.id !== id
+          )
+        );
+
+        toastTimersRef.current.delete(
+          id
+        );
+      }, 2800);
+
+      toastTimersRef.current.set(
+        id,
+        timer
       );
-
-      toastTimersRef.current.delete(id);
-    }, 2800);
-
-    toastTimersRef.current.set(id, timer);
-  }, []);
+    },
+    []
+  );
 
   /* -------------------------------------------------------------- */
   /* Session                                                         */
   /* -------------------------------------------------------------- */
 
-  const checkSession = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_URL}/auth/me`, {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
+  const checkSession = useCallback(
+    async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/auth/me`,
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
 
-      if (!response.ok) {
+        if (!response.ok) {
+          setUser(null);
+
+          /*
+           * No authenticated session means
+           * there must be no cloud chat state
+           * left in memory.
+           */
+          setChats([]);
+          setMessages([]);
+          setActiveChatId(null);
+
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        const authenticatedUser =
+          data?.success &&
+          data?.user
+            ? data.user
+            : null;
+
+        /*
+         * Start with an empty chat state.
+         * Cloud chats are loaded separately
+         * after authentication.
+         */
+        setChats([]);
+        setMessages([]);
+        setActiveChatId(null);
+
+        setUser(
+          authenticatedUser
+        );
+      } catch (error) {
+        console.error(
+          "Session check failed:",
+          error
+        );
+
         setUser(null);
-        return;
+        setChats([]);
+        setMessages([]);
+        setActiveChatId(null);
+      } finally {
+        setAuthLoading(false);
       }
-
-      const data = await response.json();
-
-      setUser(
-        data?.success && data?.user
-          ? data.user
-          : null
-      );
-    } catch (error) {
-      console.error("Session check failed:", error);
-      setUser(null);
-    } finally {
-      setAuthLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   /* -------------------------------------------------------------- */
-  /* Local storage                                                   */
+  /* Initial hydration                                               */
   /* -------------------------------------------------------------- */
 
   useEffect(() => {
     try {
-      const savedChats =
-        localStorage.getItem(STORAGE_KEY);
-
-      if (savedChats) {
-        const parsed = JSON.parse(savedChats);
-
-        if (Array.isArray(parsed)) {
-          setChats(
-            parsed
-              .map(normalizeChat)
-              .filter(Boolean)
-          );
-        }
-      }
+      /*
+       * IMPORTANT:
+       *
+       * Chat history is intentionally NOT
+       * loaded from localStorage anymore.
+       *
+       * Guests have temporary chats only.
+       *
+       * Account chats come from the backend.
+       */
 
       const savedSettings =
-        localStorage.getItem(SETTINGS_KEY);
+        localStorage.getItem(
+          SETTINGS_KEY
+        );
 
       if (savedSettings) {
+        const parsed =
+          JSON.parse(
+            savedSettings
+          );
+
         setSettings({
           ...DEFAULT_SETTINGS,
-          ...JSON.parse(savedSettings),
+          ...parsed,
         });
       }
     } catch (error) {
       console.error(
-        "Failed to load Fades data:",
+        "Failed to load Fades settings:",
         error
       );
     } finally {
@@ -310,25 +459,9 @@ export default function Home() {
     checkSession();
   }, [checkSession]);
 
-  /*
-   * Local storage is intentionally kept for guests.
-   * Signed-in users are synced to the backend instead.
-   */
-  useEffect(() => {
-    if (!hydrated || user) return;
-
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(chats)
-      );
-    } catch (error) {
-      console.error(
-        "Failed to save local chats:",
-        error
-      );
-    }
-  }, [chats, hydrated, user]);
+  /* -------------------------------------------------------------- */
+  /* Settings storage                                                */
+  /* -------------------------------------------------------------- */
 
   useEffect(() => {
     if (!hydrated) return;
@@ -344,121 +477,178 @@ export default function Home() {
         error
       );
     }
-  }, [settings, hydrated]);
+  }, [
+    settings,
+    hydrated,
+  ]);
 
   /* -------------------------------------------------------------- */
   /* Load account chats                                              */
   /* -------------------------------------------------------------- */
 
-  const loadCloudChats = useCallback(async () => {
-    if (!user) return;
+  const loadCloudChats = useCallback(
+    async () => {
+      if (!user) return;
 
-    setCloudChatsLoading(true);
+      setCloudChatsLoading(true);
 
-    try {
-      const response = await fetch(
-        `${API_URL}/chats`,
-        {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
+      /*
+       * Immediately clear whatever was
+       * previously in memory.
+       */
+      setChats([]);
+      setMessages([]);
+      setActiveChatId(null);
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/chats`,
+            {
+              method: "GET",
+              credentials: "include",
+              cache: "no-store",
+            }
+          );
+
+        const data =
+          await response
+            .json()
+            .catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              "Unable to load your conversations."
+          );
         }
-      );
 
-      const data = await response.json().catch(
-        () => null
-      );
+        const serverChats =
+          Array.isArray(data)
+            ? data
+            : Array.isArray(
+                data?.chats
+              )
+            ? data.chats
+            : [];
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Unable to load your conversations."
+        const normalized =
+          serverChats
+            .map(normalizeChat)
+            .filter(Boolean);
+
+        /*
+         * Only the authenticated user's
+         * backend chats are now placed into
+         * React state.
+         */
+        setChats(normalized);
+
+        /*
+         * Open the most recently updated
+         * account chat automatically.
+         */
+        if (normalized.length > 0) {
+          const firstChat =
+            normalized[0];
+
+          setActiveChatId(
+            firstChat.id
+          );
+
+          setMessages(
+            firstChat.messages || []
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load cloud chats:",
+          error
+        );
+
+        setChats([]);
+        setMessages([]);
+        setActiveChatId(null);
+
+        showToast(
+          "Unable to load your saved chats.",
+          "error"
+        );
+      } finally {
+        setCloudChatsLoading(
+          false
         );
       }
-
-      const serverChats = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.chats)
-        ? data.chats
-        : [];
-
-      const normalized = serverChats
-        .map(normalizeChat)
-        .filter(Boolean);
-
-      setChats(normalized);
-
-      if (activeChatId) {
-        const active = normalized.find(
-          (chat) => chat.id === activeChatId
-        );
-
-        if (active) {
-          setMessages(active.messages || []);
-        } else {
-          setActiveChatId(null);
-          setMessages([]);
-        }
-      }
-    } catch (error) {
-      console.error(
-        "Failed to load cloud chats:",
-        error
-      );
-
-      showToast(
-        "Unable to load your saved chats.",
-        "error"
-      );
-    } finally {
-      setCloudChatsLoading(false);
-    }
-  }, [user, activeChatId, showToast]);
+    },
+    [user, showToast]
+  );
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     loadCloudChats();
-  }, [user]); // intentionally only when account changes
+  }, [
+    user,
+    loadCloudChats,
+  ]);
 
   /* -------------------------------------------------------------- */
   /* Theme                                                           */
   /* -------------------------------------------------------------- */
 
   useEffect(() => {
-    const root = document.documentElement;
+    const root =
+      document.documentElement;
 
     root.dataset.compact =
-      settings.compactMode ? "true" : "false";
+      settings.compactMode
+        ? "true"
+        : "false";
 
-    if (settings.theme !== "system") {
-      root.dataset.theme = settings.theme;
+    if (
+      settings.theme !==
+      "system"
+    ) {
+      root.dataset.theme =
+        settings.theme;
+
       return;
     }
 
-    const query = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    );
+    const query =
+      window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      );
 
     const apply = () => {
-      root.dataset.theme = query.matches
-        ? "dark"
-        : "light";
+      root.dataset.theme =
+        query.matches
+          ? "dark"
+          : "light";
     };
 
     apply();
 
-    query.addEventListener("change", apply);
+    query.addEventListener(
+      "change",
+      apply
+    );
 
     return () =>
-      query.removeEventListener("change", apply);
+      query.removeEventListener(
+        "change",
+        apply
+      );
   }, [
     settings.theme,
     settings.compactMode,
   ]);
 
   useEffect(() => {
-    const timers = toastTimersRef.current;
+    const timers =
+      toastTimersRef.current;
 
     return () => {
       abortControllerRef.current?.abort();
@@ -475,305 +665,259 @@ export default function Home() {
   /* Composer                                                        */
   /* -------------------------------------------------------------- */
 
-  const focusComposer = useCallback(() => {
-    window.setTimeout(
-      () => textareaRef.current?.focus(),
-      50
-    );
-  }, []);
+  const focusComposer =
+    useCallback(() => {
+      window.setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+    }, []);
 
-  const resizeTextarea = useCallback(() => {
-    const textarea = textareaRef.current;
+  const resizeTextarea =
+    useCallback(() => {
+      const textarea =
+        textareaRef.current;
 
-    if (!textarea) return;
+      if (!textarea) return;
 
-    textarea.style.height = "auto";
+      textarea.style.height =
+        "auto";
 
-    textarea.style.height = `${Math.min(
-      textarea.scrollHeight,
-      MAX_TEXTAREA_HEIGHT
-    )}px`;
-  }, []);
+      textarea.style.height = `${Math.min(
+        textarea.scrollHeight,
+        MAX_TEXTAREA_HEIGHT
+      )}px`;
+    }, []);
 
   /* -------------------------------------------------------------- */
   /* Cloud chat helpers                                              */
   /* -------------------------------------------------------------- */
 
-  const createCloudChat = useCallback(
-    async (chat) => {
-      if (!user) return chat;
-
-      const response = await fetch(
-        `${API_URL}/chats`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            title: chat.title,
-            pinned: chat.pinned,
-            favorite: chat.favorite,
-          }),
+  const createCloudChat =
+    useCallback(
+      async (chat) => {
+        if (!user) {
+          return chat;
         }
-      );
 
-      const data = await response.json().catch(
-        () => null
-      );
+        const response =
+          await fetch(
+            `${API_URL}/chats`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              credentials:
+                "include",
+              body: JSON.stringify({
+                title:
+                  chat.title,
+                pinned:
+                  chat.pinned,
+                favorite:
+                  chat.favorite,
+              }),
+            }
+          );
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Unable to create conversation."
-        );
-      }
-
-      return normalizeChat(
-        data?.chat || data
-      );
-    },
-    [user]
-  );
-
-  const updateCloudChat = useCallback(
-    async (chatId, updates) => {
-      if (!user) return;
-
-      try {
-        const response = await fetch(
-          `${API_URL}/chats/${encodeURIComponent(
-            chatId
-          )}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(updates),
-          }
-        );
-
-        const data = await response.json().catch(
-          () => null
-        );
+        const data =
+          await response
+            .json()
+            .catch(() => null);
 
         if (!response.ok) {
           throw new Error(
             data?.error ||
-              "Unable to update conversation."
+              "Unable to create conversation."
           );
         }
-      } catch (error) {
-        console.error(
-          "Cloud chat update failed:",
-          error
+
+        return normalizeChat(
+          data?.chat || data
         );
+      },
+      [user]
+    );
 
-        showToast(
-          "Your chat could not be synced.",
-          "error"
-        );
-      }
-    },
-    [user, showToast]
-  );
+  const updateCloudChat =
+    useCallback(
+      async (
+        chatId,
+        updates
+      ) => {
+        if (!user) return;
 
-  const deleteCloudChat = useCallback(
-    async (chatId) => {
-      if (!user) return;
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/chats/${encodeURIComponent(
+                chatId
+              )}`,
+              {
+                method:
+                  "PATCH",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                credentials:
+                  "include",
+                body: JSON.stringify(
+                  updates
+                ),
+              }
+            );
 
-      try {
-        const response = await fetch(
-          `${API_URL}/chats/${encodeURIComponent(
-            chatId
-          )}`,
-          {
-            method: "DELETE",
-            credentials: "include",
+          const data =
+            await response
+              .json()
+              .catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+                "Unable to update conversation."
+            );
           }
-        );
+        } catch (error) {
+          console.error(
+            "Cloud chat update failed:",
+            error
+          );
 
-        const data = await response.json().catch(
-          () => null
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-              "Unable to delete conversation."
+          showToast(
+            "Your chat could not be synced.",
+            "error"
           );
         }
-      } catch (error) {
-        console.error(
-          "Cloud chat delete failed:",
-          error
-        );
+      },
+      [user, showToast]
+    );
 
-        showToast(
-          "The chat could not be deleted from your account.",
-          "error"
-        );
-      }
-    },
-    [user, showToast]
-  );
+  const deleteCloudChat =
+    useCallback(
+      async (chatId) => {
+        if (!user) return;
 
-  const saveCloudMessages = useCallback(
-    async (chatId, nextMessages) => {
-      if (!user) return;
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/chats/${encodeURIComponent(
+                chatId
+              )}`,
+              {
+                method:
+                  "DELETE",
+                credentials:
+                  "include",
+              }
+            );
 
-      try {
-        const response = await fetch(
-          `${API_URL}/chats/${encodeURIComponent(
-            chatId
-          )}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              messages: nextMessages.map(
-                (item) => ({
-                  id: item.id,
-                  role: item.role,
-                  content: item.content,
-                  createdAt: item.createdAt,
-                })
-              ),
-            }),
+          const data =
+            await response
+              .json()
+              .catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+                "Unable to delete conversation."
+            );
           }
-        );
+        } catch (error) {
+          console.error(
+            "Cloud chat delete failed:",
+            error
+          );
 
-        const data = await response.json().catch(
-          () => null
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-              "Unable to save messages."
+          showToast(
+            "The chat could not be deleted from your account.",
+            "error"
           );
         }
-      } catch (error) {
-        console.error(
-          "Cloud message save failed:",
-          error
-        );
+      },
+      [user, showToast]
+    );
 
-        showToast(
-          "Your latest messages could not be saved.",
-          "error"
-        );
-      }
-    },
-    [user, showToast]
-  );
+  const saveCloudMessages =
+    useCallback(
+      async (
+        chatId,
+        nextMessages
+      ) => {
+        if (!user) return;
+
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/chats/${encodeURIComponent(
+                chatId
+              )}/messages`,
+              {
+                method:
+                  "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                credentials:
+                  "include",
+                body: JSON.stringify({
+                  messages:
+                    nextMessages.map(
+                      (item) => ({
+                        id:
+                          item.id,
+                        role:
+                          item.role,
+                        content:
+                          item.content,
+                        createdAt:
+                          item.createdAt,
+                      })
+                    ),
+                }),
+              }
+            );
+
+          const data =
+            await response
+              .json()
+              .catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+                "Unable to save messages."
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Cloud message save failed:",
+            error
+          );
+
+          showToast(
+            "Your latest messages could not be saved.",
+            "error"
+          );
+        }
+      },
+      [user, showToast]
+    );
 
   /* -------------------------------------------------------------- */
   /* Chats                                                           */
   /* -------------------------------------------------------------- */
 
-  const createChat = useCallback(async () => {
-    if (loading) return;
-
-    const localChat = {
-      id: createId("chat"),
-      title: "New chat",
-      messages: [],
-      pinned: false,
-      favorite: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    let chat = localChat;
-
-    if (user) {
-      try {
-        chat = await createCloudChat(localChat);
-      } catch (error) {
-        console.error(
-          "Cloud chat creation failed:",
-          error
-        );
-
-        showToast(
-          "Unable to create a saved chat.",
-          "error"
-        );
-
-        return;
-      }
-    }
-
-    setChats((current) => [
-      chat,
-      ...current,
-    ]);
-
-    setActiveChatId(chat.id);
-    setMessages([]);
-    setMessage("");
-    setSidebarOpen(false);
-    stickToBottomRef.current = true;
-
-    focusComposer();
-  }, [
-    loading,
-    user,
-    createCloudChat,
-    showToast,
-    focusComposer,
-  ]);
-
-  const openChat = useCallback(
-    (chat) => {
+  const createChat =
+    useCallback(async () => {
       if (loading) return;
-
-      setActiveChatId(chat.id);
-      setMessages(chat.messages || []);
-      setMessage("");
-      setSidebarOpen(false);
-      setProfileOpen(false);
-      stickToBottomRef.current = true;
-
-      focusComposer();
-    },
-    [loading, focusComposer]
-  );
-
-  function generateTitle(text) {
-    const clean = text
-      .trim()
-      .replace(/\s+/g, " ");
-
-    if (!clean) return "New chat";
-
-    if (clean.length <= 48) {
-      return clean;
-    }
-
-    return `${clean.slice(0, 48)}...`;
-  }
-
-  const ensureChat = useCallback(
-    async (text) => {
-      const exists = chats.some(
-        (chat) => chat.id === activeChatId
-      );
-
-      if (activeChatId && exists) {
-        return activeChatId;
-      }
 
       const localChat = {
         id: createId("chat"),
-        title: generateTitle(text),
+        title: "New chat",
         messages: [],
         pinned: false,
         favorite: false,
@@ -781,452 +925,665 @@ export default function Home() {
         updatedAt: Date.now(),
       };
 
+      let chat = localChat;
+
+      /*
+       * Only authenticated users create
+       * persistent backend chats.
+       *
+       * Guests get a temporary React-state
+       * chat that disappears when they leave.
+       */
       if (user) {
         try {
-          const cloudChat =
-            await createCloudChat(localChat);
-
-          setChats((current) => [
-            cloudChat,
-            ...current,
-          ]);
-
-          setActiveChatId(cloudChat.id);
-
-          return cloudChat.id;
+          chat =
+            await createCloudChat(
+              localChat
+            );
         } catch (error) {
           console.error(
-            "Failed to create cloud chat:",
+            "Cloud chat creation failed:",
             error
           );
 
-          throw error;
+          showToast(
+            "Unable to create a saved chat.",
+            "error"
+          );
+
+          return;
         }
       }
 
       setChats((current) => [
-        localChat,
+        chat,
         ...current,
       ]);
 
-      setActiveChatId(localChat.id);
+      setActiveChatId(chat.id);
+      setMessages([]);
+      setMessage("");
+      setSidebarOpen(false);
 
-      return localChat.id;
-    },
-    [
-      activeChatId,
-      chats,
+      stickToBottomRef.current =
+        true;
+
+      focusComposer();
+    }, [
+      loading,
       user,
       createCloudChat,
-    ]
-  );
+      showToast,
+      focusComposer,
+    ]);
 
-  const commitMessages = useCallback(
-    (
-      chatId,
-      nextMessages,
-      title
-    ) => {
-      setMessages(nextMessages);
+  const openChat =
+    useCallback(
+      (chat) => {
+        if (loading) return;
 
-      setChats((current) =>
-        current.map((chat) =>
-          chat.id === chatId
-            ? {
-                ...chat,
-                title:
-                  title &&
-                  chat.title === "New chat"
-                    ? title
-                    : chat.title,
-                messages: nextMessages,
-                updatedAt: Date.now(),
-              }
-            : chat
-        )
-      );
-    },
-    []
-  );
+        setActiveChatId(chat.id);
+        setMessages(
+          chat.messages || []
+        );
+        setMessage("");
+        setSidebarOpen(false);
+        setProfileOpen(false);
+
+        stickToBottomRef.current =
+          true;
+
+        focusComposer();
+      },
+      [
+        loading,
+        focusComposer,
+      ]
+    );
+
+  function generateTitle(text) {
+    const clean = text
+      .trim()
+      .replace(/\s+/g, " ");
+
+    if (!clean) {
+      return "New chat";
+    }
+
+    if (clean.length <= 48) {
+      return clean;
+    }
+
+    return `${clean.slice(
+      0,
+      48
+    )}...`;
+  }
+
+  const ensureChat =
+    useCallback(
+      async (text) => {
+        const exists = chats.some(
+          (chat) =>
+            chat.id ===
+            activeChatId
+        );
+
+        if (
+          activeChatId &&
+          exists
+        ) {
+          return activeChatId;
+        }
+
+        const localChat = {
+          id: createId("chat"),
+          title:
+            generateTitle(text),
+          messages: [],
+          pinned: false,
+          favorite: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        /*
+         * Only signed-in users get
+         * a backend chat.
+         */
+        if (user) {
+          try {
+            const cloudChat =
+              await createCloudChat(
+                localChat
+              );
+
+            setChats((current) => [
+              cloudChat,
+              ...current,
+            ]);
+
+            setActiveChatId(
+              cloudChat.id
+            );
+
+            return cloudChat.id;
+          } catch (error) {
+            console.error(
+              "Failed to create cloud chat:",
+              error
+            );
+
+            throw error;
+          }
+        }
+
+        /*
+         * Guest chat exists only in
+         * React memory.
+         */
+        setChats((current) => [
+          localChat,
+          ...current,
+        ]);
+
+        setActiveChatId(
+          localChat.id
+        );
+
+        return localChat.id;
+      },
+      [
+        activeChatId,
+        chats,
+        user,
+        createCloudChat,
+      ]
+    );
+
+  const commitMessages =
+    useCallback(
+      (
+        chatId,
+        nextMessages,
+        title
+      ) => {
+        setMessages(
+          nextMessages
+        );
+
+        setChats((current) =>
+          current.map((chat) =>
+            chat.id === chatId
+              ? {
+                  ...chat,
+                  title:
+                    title &&
+                    chat.title ===
+                      "New chat"
+                      ? title
+                      : chat.title,
+                  messages:
+                    nextMessages,
+                  updatedAt:
+                    Date.now(),
+                }
+              : chat
+          )
+        );
+      },
+      []
+    );
 
   /* -------------------------------------------------------------- */
   /* Send                                                            */
   /* -------------------------------------------------------------- */
 
-  const sendMessage = useCallback(
-    async (
-      event,
-      overrideMessage = null,
-      baseMessages = null
-    ) => {
-      event?.preventDefault?.();
+  const sendMessage =
+    useCallback(
+      async (
+        event,
+        overrideMessage = null,
+        baseMessages = null
+      ) => {
+        event?.preventDefault?.();
 
-      const text = (
-        overrideMessage !== null
-          ? overrideMessage
-          : message
-      ).trim();
+        const text = (
+          overrideMessage !==
+          null
+            ? overrideMessage
+            : message
+        ).trim();
 
-      if (!text || loading) return;
+        if (!text || loading) {
+          return;
+        }
 
-      setMessage("");
+        setMessage("");
 
-      if (textareaRef.current) {
-        textareaRef.current.style.height =
-          "auto";
-      }
+        if (textareaRef.current) {
+          textareaRef.current.style.height =
+            "auto";
+        }
 
-      const baseline =
-        baseMessages ?? messages;
+        const baseline =
+          baseMessages ??
+          messages;
 
-      let currentChatId;
+        let currentChatId;
 
-      try {
-        currentChatId =
-          await ensureChat(text);
-      } catch (error) {
-        showToast(
-          error?.message ||
-            "Unable to create the conversation.",
-          "error"
-        );
+        try {
+          currentChatId =
+            await ensureChat(
+              text
+            );
+        } catch (error) {
+          showToast(
+            error?.message ||
+              "Unable to create the conversation.",
+            "error"
+          );
 
-        return;
-      }
+          return;
+        }
 
-      const userMessage = {
-        id: createId("message"),
-        role: "user",
-        content: text,
-        createdAt: Date.now(),
-      };
-
-      const history = baseline.map(
-        (item) => ({
-          role: item.role,
-          content: item.content,
-        })
-      );
-
-      const updatedMessages = [
-        ...baseline,
-        userMessage,
-      ];
-
-      const assistantId =
-        createId("message");
-
-      stickToBottomRef.current = true;
-
-      setMessages([
-        ...updatedMessages,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          streaming: true,
+        const userMessage = {
+          id: createId(
+            "message"
+          ),
+          role: "user",
+          content: text,
           createdAt: Date.now(),
-        },
-      ]);
+        };
 
-      setLoading(true);
-
-      const controller =
-        new AbortController();
-
-      abortControllerRef.current =
-        controller;
-
-      try {
-        const response = await fetch(
-          "/api/chat",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            signal: controller.signal,
-            body: JSON.stringify({
-              message: text,
-              history,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          let errorMessage =
-            "Fades could not process the request.";
-
-          try {
-            const errorText =
-              await response.text();
-
-            try {
-              errorMessage =
-                JSON.parse(errorText)?.error ||
-                errorMessage;
-            } catch {
-              if (errorText) {
-                errorMessage =
-                  errorText;
-              }
-            }
-          } catch {
-            /* ignore */
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        if (!response.body) {
-          throw new Error(
-            "Fades returned an empty response."
-          );
-        }
-
-        const reader =
-          response.body.getReader();
-
-        const decoder =
-          new TextDecoder();
-
-        let buffer = "";
-        let fullResponse = "";
-        let streamError = null;
-
-        while (true) {
-          const {
-            value,
-            done,
-          } = await reader.read();
-
-          if (done) break;
-
-          buffer += decoder.decode(
-            value,
-            { stream: true }
+        const history =
+          baseline.map(
+            (item) => ({
+              role:
+                item.role,
+              content:
+                item.content,
+            })
           );
 
-          const events =
-            buffer.split("\n\n");
+        const updatedMessages = [
+          ...baseline,
+          userMessage,
+        ];
 
-          buffer =
-            events.pop() || "";
+        const assistantId =
+          createId("message");
 
-          for (const sseEvent of events) {
-            for (const line of sseEvent.split(
-              "\n"
-            )) {
-              if (
-                !line.startsWith("data:")
-              ) {
-                continue;
-              }
+        stickToBottomRef.current =
+          true;
 
-              const rawData =
-                line.slice(5).trim();
-
-              if (
-                !rawData ||
-                rawData === "[DONE]"
-              ) {
-                continue;
-              }
-
-              let data;
-
-              try {
-                data =
-                  JSON.parse(rawData);
-              } catch (
-                parseError
-              ) {
-                console.warn(
-                  "Stream parsing warning:",
-                  parseError
-                );
-
-                continue;
-              }
-
-              if (data.error) {
-                streamError =
-                  new Error(
-                    data.error
-                  );
-
-                break;
-              }
-
-              const chunk =
-                data.content ??
-                data.text ??
-                data.delta ??
-                data.message?.content ??
-                "";
-
-              if (!chunk) continue;
-
-              fullResponse += chunk;
-
-              setMessages(
-                (current) =>
-                  current.map(
-                    (item) =>
-                      item.id ===
-                      assistantId
-                        ? {
-                            ...item,
-                            content:
-                              fullResponse,
-                          }
-                        : item
-                  )
-              );
-            }
-
-            if (streamError) break;
-          }
-
-          if (streamError) {
-            await reader
-              .cancel()
-              .catch(() => {});
-
-            throw streamError;
-          }
-        }
-
-        const finalMessages = [
+        setMessages([
           ...updatedMessages,
           {
             id: assistantId,
             role: "assistant",
-            content:
-              fullResponse ||
-              "I wasn't able to generate a response.",
+            content: "",
+            streaming: true,
             createdAt: Date.now(),
           },
-        ];
+        ]);
 
-        const title =
-          generateTitle(text);
+        setLoading(true);
 
-        commitMessages(
-          currentChatId,
-          finalMessages,
-          title
-        );
+        const controller =
+          new AbortController();
 
-        if (user) {
-          const chat =
-            chats.find(
-              (item) =>
-                item.id ===
-                currentChatId
+        abortControllerRef.current =
+          controller;
+
+        try {
+          const response =
+            await fetch(
+              "/api/chat",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                signal:
+                  controller.signal,
+                body: JSON.stringify(
+                  {
+                    message:
+                      text,
+                    history,
+                  }
+                ),
+              }
             );
 
-          if (
-            chat &&
-            chat.title === "New chat"
-          ) {
-            await updateCloudChat(
-              currentChatId,
-              {
-                title,
+          if (!response.ok) {
+            let errorMessage =
+              "Fades could not process the request.";
+
+            try {
+              const errorText =
+                await response.text();
+
+              try {
+                errorMessage =
+                  JSON.parse(
+                    errorText
+                  )?.error ||
+                  errorMessage;
+              } catch {
+                if (errorText) {
+                  errorMessage =
+                    errorText;
+                }
               }
+            } catch {
+              /* ignore */
+            }
+
+            throw new Error(
+              errorMessage
             );
           }
 
-          await saveCloudMessages(
-            currentChatId,
-            finalMessages
-          );
-        }
-      } catch (error) {
-        if (
-          error?.name ===
-          "AbortError"
-        ) {
-          const stoppedMessages = [
+          if (!response.body) {
+            throw new Error(
+              "Fades returned an empty response."
+            );
+          }
+
+          const reader =
+            response.body.getReader();
+
+          const decoder =
+            new TextDecoder();
+
+          let buffer = "";
+          let fullResponse = "";
+          let streamError =
+            null;
+
+          while (true) {
+            const {
+              value,
+              done,
+            } =
+              await reader.read();
+
+            if (done) break;
+
+            buffer +=
+              decoder.decode(
+                value,
+                {
+                  stream: true,
+                }
+              );
+
+            const events =
+              buffer.split(
+                "\n\n"
+              );
+
+            buffer =
+              events.pop() ||
+              "";
+
+            for (const sseEvent of events) {
+              for (const line of sseEvent.split(
+                "\n"
+              )) {
+                if (
+                  !line.startsWith(
+                    "data:"
+                  )
+                ) {
+                  continue;
+                }
+
+                const rawData =
+                  line
+                    .slice(5)
+                    .trim();
+
+                if (
+                  !rawData ||
+                  rawData ===
+                    "[DONE]"
+                ) {
+                  continue;
+                }
+
+                let data;
+
+                try {
+                  data =
+                    JSON.parse(
+                      rawData
+                    );
+                } catch (
+                  parseError
+                ) {
+                  console.warn(
+                    "Stream parsing warning:",
+                    parseError
+                  );
+
+                  continue;
+                }
+
+                if (data.error) {
+                  streamError =
+                    new Error(
+                      data.error
+                    );
+
+                  break;
+                }
+
+                const chunk =
+                  data.content ??
+                  data.text ??
+                  data.delta ??
+                  data.message
+                    ?.content ??
+                  "";
+
+                if (!chunk) {
+                  continue;
+                }
+
+                fullResponse +=
+                  chunk;
+
+                setMessages(
+                  (current) =>
+                    current.map(
+                      (item) =>
+                        item.id ===
+                        assistantId
+                          ? {
+                              ...item,
+                              content:
+                                fullResponse,
+                            }
+                          : item
+                    )
+                );
+              }
+
+              if (streamError) {
+                break;
+              }
+            }
+
+            if (streamError) {
+              await reader
+                .cancel()
+                .catch(
+                  () => {}
+                );
+
+              throw streamError;
+            }
+          }
+
+          const finalMessages = [
             ...updatedMessages,
             {
               id: assistantId,
               role: "assistant",
               content:
-                "Generation stopped.",
-              stopped: true,
-              createdAt: Date.now(),
+                fullResponse ||
+                "I wasn't able to generate a response.",
+              createdAt:
+                Date.now(),
             },
           ];
 
+          const title =
+            generateTitle(text);
+
           commitMessages(
             currentChatId,
-            stoppedMessages
+            finalMessages,
+            title
           );
 
+          /*
+           * CRITICAL:
+           *
+           * Only authenticated users
+           * save conversations.
+           *
+           * Guests never call the backend
+           * and never write chat data
+           * to localStorage.
+           */
           if (user) {
+            const chat =
+              chats.find(
+                (item) =>
+                  item.id ===
+                  currentChatId
+              );
+
+            if (
+              chat &&
+              chat.title ===
+                "New chat"
+            ) {
+              await updateCloudChat(
+                currentChatId,
+                {
+                  title,
+                }
+              );
+            }
+
             await saveCloudMessages(
+              currentChatId,
+              finalMessages
+            );
+          }
+        } catch (error) {
+          if (
+            error?.name ===
+            "AbortError"
+          ) {
+            const stoppedMessages = [
+              ...updatedMessages,
+              {
+                id: assistantId,
+                role: "assistant",
+                content:
+                  "Generation stopped.",
+                stopped: true,
+                createdAt:
+                  Date.now(),
+              },
+            ];
+
+            commitMessages(
               currentChatId,
               stoppedMessages
             );
+
+            if (user) {
+              await saveCloudMessages(
+                currentChatId,
+                stoppedMessages
+              );
+            }
+
+            showToast(
+              "Generation stopped."
+            );
+          } else {
+            console.error(
+              "Fades AI error:",
+              error
+            );
+
+            const errorMessages = [
+              ...updatedMessages,
+              {
+                id: assistantId,
+                role: "assistant",
+                content:
+                  error?.message ||
+                  "Something went wrong while connecting to Fades AI.",
+                error: true,
+                createdAt:
+                  Date.now(),
+              },
+            ];
+
+            commitMessages(
+              currentChatId,
+              errorMessages
+            );
+
+            /*
+             * Only save error messages
+             * for authenticated users.
+             */
+            if (user) {
+              await saveCloudMessages(
+                currentChatId,
+                errorMessages
+              );
+            }
+
+            showToast(
+              "Fades couldn't complete that request.",
+              "error"
+            );
           }
+        } finally {
+          setLoading(false);
 
-          showToast(
-            "Generation stopped."
-          );
-        } else {
-          console.error(
-            "Fades AI error:",
-            error
-          );
+          abortControllerRef.current =
+            null;
 
-          const errorMessages = [
-            ...updatedMessages,
-            {
-              id: assistantId,
-              role: "assistant",
-              content:
-                error?.message ||
-                "Something went wrong while connecting to Fades AI.",
-              error: true,
-              createdAt: Date.now(),
-            },
-          ];
-
-          commitMessages(
-            currentChatId,
-            errorMessages
-          );
-
-          showToast(
-            "Fades couldn't complete that request.",
-            "error"
-          );
+          focusComposer();
         }
-      } finally {
-        setLoading(false);
-        abortControllerRef.current =
-          null;
-
-        focusComposer();
-      }
-    },
-    [
-      message,
-      messages,
-      loading,
-      ensureChat,
-      commitMessages,
-      showToast,
-      focusComposer,
-      user,
-      chats,
-      updateCloudChat,
-      saveCloudMessages,
-    ]
-  );
+      },
+      [
+        message,
+        messages,
+        loading,
+        ensureChat,
+        commitMessages,
+        showToast,
+        focusComposer,
+        user,
+        chats,
+        updateCloudChat,
+        saveCloudMessages,
+      ]
+    );
 
   function stopGeneration() {
     abortControllerRef.current?.abort();
@@ -1236,51 +1593,55 @@ export default function Home() {
   /* Regenerate                                                      */
   /* -------------------------------------------------------------- */
 
-  const resendFrom = useCallback(
-    async (index) => {
-      if (loading) return;
+  const resendFrom =
+    useCallback(
+      async (index) => {
+        if (loading) return;
 
-      let userIndex = -1;
+        let userIndex = -1;
 
-      for (
-        let i = index - 1;
-        i >= 0;
-        i -= 1
-      ) {
-        if (
-          messages[i].role ===
-          "user"
+        for (
+          let i = index - 1;
+          i >= 0;
+          i -= 1
         ) {
-          userIndex = i;
-          break;
+          if (
+            messages[i].role ===
+            "user"
+          ) {
+            userIndex = i;
+            break;
+          }
         }
-      }
 
-      if (userIndex === -1) return;
+        if (userIndex === -1) {
+          return;
+        }
 
-      const base =
-        messages.slice(
-          0,
-          userIndex
+        const base =
+          messages.slice(
+            0,
+            userIndex
+          );
+
+        const prompt =
+          messages[userIndex]
+            .content;
+
+        setMessages(base);
+
+        await sendMessage(
+          null,
+          prompt,
+          base
         );
-
-      const prompt =
-        messages[userIndex].content;
-
-      setMessages(base);
-
-      await sendMessage(
-        null,
-        prompt,
-        base
-      );
-    },
-    [
-      loading,
-      messages,
-      sendMessage,
-    ]
-  );
+      },
+      [
+        loading,
+        messages,
+        sendMessage,
+      ]
+    );
 
   function applySuggestion(prompt) {
     setMessage(prompt);
@@ -1306,13 +1667,18 @@ export default function Home() {
     );
 
     if (
-      activeChatId === chatId
+      activeChatId ===
+      chatId
     ) {
       setActiveChatId(null);
       setMessages([]);
       setMessage("");
     }
 
+    /*
+     * Only account chats exist in
+     * the backend.
+     */
     if (user) {
       deleteCloudChat(chatId);
     }
@@ -1322,7 +1688,9 @@ export default function Home() {
 
   function startRename(chat) {
     setEditingChatId(chat.id);
-    setEditingTitle(chat.title);
+    setEditingTitle(
+      chat.title
+    );
   }
 
   function saveRename(chatId) {
@@ -1393,7 +1761,9 @@ export default function Home() {
     }
   }
 
-  function toggleFavorite(chatId) {
+  function toggleFavorite(
+    chatId
+  ) {
     setChats((current) =>
       current.map((chat) =>
         chat.id === chatId
@@ -1430,12 +1800,14 @@ export default function Home() {
 
     if (user) {
       /*
-       * Account chats are deleted individually
-       * so the backend remains the source of truth.
+       * Delete account chats from
+       * the backend.
        */
       Promise.all(
         chats.map((chat) =>
-          deleteCloudChat(chat.id)
+          deleteCloudChat(
+            chat.id
+          )
         )
       ).catch((error) =>
         console.error(
@@ -1445,6 +1817,10 @@ export default function Home() {
       );
     }
 
+    /*
+     * Regardless of authentication state,
+     * clear the in-memory chat state.
+     */
     setChats([]);
     setMessages([]);
     setActiveChatId(null);
@@ -1452,41 +1828,41 @@ export default function Home() {
     setClearConfirmOpen(false);
     setSettingsOpen(false);
 
-    if (!user) {
-      try {
-        localStorage.removeItem(
-          STORAGE_KEY
-        );
-      } catch {
-        /* ignore */
-      }
-    }
+    /*
+     * There is intentionally NO
+     * localStorage chat deletion here
+     * because chats are never stored
+     * in localStorage anymore.
+     */
 
-    showToast("All chats cleared.");
+    showToast(
+      "All chats cleared."
+    );
   }
 
-  const copyText = useCallback(
-    async (content) => {
-      try {
-        await navigator.clipboard.writeText(
-          content
-        );
+  const copyText =
+    useCallback(
+      async (content) => {
+        try {
+          await navigator.clipboard.writeText(
+            content
+          );
 
-        showToast("Copied.");
-      } catch (error) {
-        console.error(
-          "Copy failed:",
-          error
-        );
+          showToast("Copied.");
+        } catch (error) {
+          console.error(
+            "Copy failed:",
+            error
+          );
 
-        showToast(
-          "Unable to copy. Check clipboard permissions.",
-          "error"
-        );
-      }
-    },
-    [showToast]
-  );
+          showToast(
+            "Unable to copy. Check clipboard permissions.",
+            "error"
+          );
+        }
+      },
+      [showToast]
+    );
 
   /* -------------------------------------------------------------- */
   /* Import / export                                                 */
@@ -1502,10 +1878,12 @@ export default function Home() {
       return;
     }
 
-    const chat = chats.find(
-      (item) =>
-        item.id === activeChatId
-    );
+    const chat =
+      chats.find(
+        (item) =>
+          item.id ===
+          activeChatId
+      );
 
     const lines = [
       "Fades AI",
@@ -1522,7 +1900,8 @@ export default function Home() {
     messages.forEach((item) => {
       lines.push(
         `${
-          item.role === "user"
+          item.role ===
+          "user"
             ? "You"
             : "Fades"
         }:`
@@ -1612,6 +1991,7 @@ export default function Home() {
               chat.title.trim()
                 ? chat.title
                 : "Imported chat",
+
             messages:
               Array.isArray(
                 chat.messages
@@ -1622,21 +2002,32 @@ export default function Home() {
                     )
                     .filter(Boolean)
                 : [],
-            pinned: Boolean(
-              chat.pinned
-            ),
-            favorite: Boolean(
-              chat.favorite
-            ),
+
+            pinned:
+              Boolean(
+                chat.pinned
+              ),
+
+            favorite:
+              Boolean(
+                chat.favorite
+              ),
+
             createdAt:
               Date.now(),
+
             updatedAt:
               Date.now(),
           }));
 
+      /*
+       * Signed-in imports are saved
+       * to the account.
+       */
       if (user) {
         for (
-          const imported of sanitized
+          const imported of
+            sanitized
         ) {
           try {
             const created =
@@ -1662,6 +2053,11 @@ export default function Home() {
         }
       }
 
+      /*
+       * Guest imports only exist in
+       * React memory. They are NOT saved
+       * anywhere.
+       */
       setChats((current) => [
         ...sanitized,
         ...current,
@@ -1669,7 +2065,8 @@ export default function Home() {
 
       showToast(
         `${sanitized.length} chat${
-          sanitized.length === 1
+          sanitized.length ===
+          1
             ? ""
             : "s"
         } imported.`
@@ -1723,6 +2120,17 @@ export default function Home() {
 
     setAuthError("");
     setAuthSubmitting(true);
+
+    /*
+     * Clear guest state BEFORE authentication.
+     *
+     * This prevents guest chats from
+     * remaining visible while the
+     * account chats are loading.
+     */
+    setChats([]);
+    setMessages([]);
+    setActiveChatId(null);
 
     try {
       const endpoint =
@@ -1784,9 +2192,13 @@ export default function Home() {
         );
       }
 
+      /*
+       * setUser triggers loadCloudChats().
+       */
       setUser(data.user);
 
       setAuthOpen(false);
+
       setAuthEmail("");
       setAuthUsername("");
       setAuthPassword("");
@@ -1807,6 +2219,16 @@ export default function Home() {
         error?.message ||
           "Unable to connect to the Fades account service."
       );
+
+      /*
+       * Authentication failed, so keep
+       * the application as a guest with
+       * an empty temporary chat state.
+       */
+      setUser(null);
+      setChats([]);
+      setMessages([]);
+      setActiveChatId(null);
     } finally {
       setAuthSubmitting(
         false
@@ -1815,6 +2237,11 @@ export default function Home() {
   }
 
   async function logout() {
+    /*
+     * Stop any active generation first.
+     */
+    abortControllerRef.current?.abort();
+
     try {
       await fetch(
         `${API_URL}/auth/logout`,
@@ -1832,21 +2259,27 @@ export default function Home() {
     }
 
     /*
-     * When signing out, keep the current
-     * chats in localStorage so the user
-     * doesn't suddenly lose the UI state.
+     * IMPORTANT:
+     *
+     * Do NOT copy account chats into
+     * localStorage.
+     *
+     * Account chats belong exclusively
+     * to the authenticated account.
      */
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(chats)
-      );
-    } catch {
-      /* ignore */
-    }
-
     setUser(null);
+
+    setChats([]);
+    setMessages([]);
+    setActiveChatId(null);
+    setMessage("");
+
+    setSearch("");
+    setEditingChatId(null);
+    setEditingTitle("");
+
     setProfileOpen(false);
+    setSidebarOpen(false);
 
     showToast(
       "You've been signed out."
@@ -1986,7 +2419,9 @@ export default function Home() {
 
       return [...chats]
         .filter((chat) => {
-          if (!query) return true;
+          if (!query) {
+            return true;
+          }
 
           return (
             chat.title
@@ -2060,17 +2495,24 @@ export default function Home() {
         chat.id ? (
           <input
             className="chat-rename"
-            value={editingTitle}
+            value={
+              editingTitle
+            }
             autoFocus
             onChange={(event) =>
               setEditingTitle(
-                event.target.value
+                event.target
+                  .value
               )
             }
             onBlur={() =>
-              saveRename(chat.id)
+              saveRename(
+                chat.id
+              )
             }
-            onKeyDown={(event) => {
+            onKeyDown={(
+              event
+            ) => {
               if (
                 event.key ===
                 "Enter"
@@ -2208,7 +2650,9 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         className={`sidebar ${
-          sidebarOpen ? "open" : ""
+          sidebarOpen
+            ? "open"
+            : ""
         }`}
       >
         <div className="sidebar-top">
@@ -2219,7 +2663,9 @@ export default function Home() {
 
             <div className="brand-name">
               Fades
-              <small>AI</small>
+              <small>
+                AI
+              </small>
             </div>
           </div>
 
@@ -2227,7 +2673,9 @@ export default function Home() {
             className="sidebar-close"
             type="button"
             onClick={() =>
-              setSidebarOpen(false)
+              setSidebarOpen(
+                false
+              )
             }
             aria-label="Close sidebar"
           >
@@ -2245,9 +2693,11 @@ export default function Home() {
           }
         >
           <span>+</span>
+
           <strong>
             New chat
           </strong>
+
           <kbd>⌘K</kbd>
         </button>
 
@@ -2255,11 +2705,14 @@ export default function Home() {
           <span>⌕</span>
 
           <input
-            ref={searchInputRef}
+            ref={
+              searchInputRef
+            }
             value={search}
             onChange={(event) =>
               setSearch(
-                event.target.value
+                event.target
+                  .value
               )
             }
             placeholder="Search chats"
@@ -2298,7 +2751,9 @@ export default function Home() {
               <small>
                 {search
                   ? "Try another search."
-                  : "Start a conversation and it will appear here."}
+                  : user
+                  ? "Start a conversation and it will be saved to your account."
+                  : "Start a conversation. Guest chats are temporary."}
               </small>
             </div>
           ) : (
@@ -2369,7 +2824,7 @@ export default function Home() {
               <span>
                 {user
                   ? user.email
-                  : "Sign in to Fades"}
+                  : "Guest mode"}
               </span>
             </div>
 
@@ -2432,7 +2887,9 @@ export default function Home() {
             className="mobile-menu"
             type="button"
             onClick={() =>
-              setSidebarOpen(true)
+              setSidebarOpen(
+                true
+              )
             }
             aria-label="Open sidebar"
           >
@@ -2446,7 +2903,9 @@ export default function Home() {
 
             <div className="brand-name">
               Fades
-              <small>AI</small>
+              <small>
+                AI
+              </small>
             </div>
           </div>
 
@@ -2540,6 +2999,7 @@ export default function Home() {
             <div className="hero-content">
               <div className="hero-status">
                 <span className="hero-status-dot" />
+
                 Fades AI is online
               </div>
 
@@ -2733,7 +3193,8 @@ export default function Home() {
                 value={message}
                 onChange={(event) => {
                   setMessage(
-                    event.target.value
+                    event.target
+                      .value
                   );
 
                   resizeTextarea();
@@ -2926,7 +3387,9 @@ export default function Home() {
               aria-label="Close"
               onClick={() =>
                 !authSubmitting &&
-                setAuthOpen(false)
+                setAuthOpen(
+                  false
+                )
               }
             >
               ×
@@ -3136,7 +3599,9 @@ export default function Home() {
             </div>
 
             <div className="login-divider">
-              <span>or</span>
+              <span>
+                or
+              </span>
             </div>
 
             <button
@@ -3155,7 +3620,7 @@ export default function Home() {
             </button>
 
             <small className="login-note">
-              Guest chats stay on this device.
+              Guest chats are temporary and are not saved.
             </small>
           </div>
         </div>
@@ -3351,7 +3816,7 @@ export default function Home() {
               <p className="settings-description">
                 {user
                   ? "Your chats are synced to your Fades account."
-                  : "Chats are stored in this browser."}
+                  : "Guest chats are temporary and are not stored on this device."}
               </p>
 
               <div className="settings-row">
@@ -3459,7 +3924,9 @@ export default function Home() {
         <div
           className="modal-backdrop"
           onMouseDown={() =>
-            setAboutOpen(false)
+            setAboutOpen(
+              false
+            )
           }
         >
           <div
@@ -3496,7 +3963,7 @@ export default function Home() {
               infrastructure.{" "}
               {user
                 ? "Your conversations are synced to your Fades account."
-                : "Your conversations are stored in this browser."}
+                : "Guest conversations are temporary and are not saved."}
             </p>
 
             <button
@@ -3555,7 +4022,7 @@ export default function Home() {
               Every conversation
               {user
                 ? " in your Fades account"
-                : " stored in this browser"}{" "}
+                : " currently open as a guest"}{" "}
               will be removed. This
               cannot be undone.
             </p>
@@ -3613,3 +4080,4 @@ export default function Home() {
     </main>
   );
 }
+
