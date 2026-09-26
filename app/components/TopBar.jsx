@@ -5,7 +5,6 @@ export function TopBar({
   logoSrc,
   hasMessages,
   exportCurrentChat,
-  setSettingsOpen,
   authLoading,
   user,
   openAuth,
@@ -28,7 +27,11 @@ export function TopBar({
 
       <div className="mobile-brand">
         <div className="brand-mark">
-          <img src={logoSrc} alt="Fades" className="brand-mark-img" />
+          <img
+            src={logoSrc}
+            alt="Fades"
+            className="brand-mark-img"
+          />
         </div>
 
         <div className="brand-name">
@@ -41,19 +44,33 @@ export function TopBar({
 
       <div className="header-controls">
         {hasMessages && (
-          <button className="header-control" type="button" onClick={exportCurrentChat}>
+          <button
+            className="header-control"
+            type="button"
+            onClick={exportCurrentChat}
+          >
             Export
           </button>
         )}
 
-        <button className="header-control" type="button" onClick={() => setSettingsOpen(true)}>
+        <button
+          className="header-control"
+          type="button"
+          onClick={() => {
+            window.location.href = "/settings";
+          }}
+        >
           Settings
         </button>
       </div>
 
       {!authLoading &&
         (!user ? (
-          <button className="login-button" type="button" onClick={() => openAuth("login")}>
+          <button
+            className="login-button"
+            type="button"
+            onClick={() => openAuth("login")}
+          >
             Sign in
           </button>
         ) : (
@@ -70,7 +87,12 @@ export function TopBar({
           </button>
         ))}
 
-      <button className="new-chat" type="button" onClick={createChat} disabled={loading || cloudChatsLoading}>
+      <button
+        className="new-chat"
+        type="button"
+        onClick={createChat}
+        disabled={loading || cloudChatsLoading}
+      >
         <span className="plus">+</span>
         <span>New chat</span>
       </button>
