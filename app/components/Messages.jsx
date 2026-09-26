@@ -31,32 +31,64 @@ export function Messages({
       aria-live="polite"
     >
       {messages.map((item, index) => (
-        <div key={item.id} className={`message-row ${item.role} ${item.error ? "error" : ""}`}>
+        <div
+          key={item.id}
+          className={`message-row ${item.role} ${
+            item.error ? "error" : ""
+          }`}
+        >
           <div className="message-label">
             {item.role === "user" ? (
               <>
-                {user?.displayName || user?.username || "You"}
-                {user?.plan === "pro" && <span className="pro-badge">PRO</span>}
+                {user?.displayName ||
+                  user?.username ||
+                  "You"}
+
+                {user?.plan === "pro" && (
+                  <span className="pro-badge">
+                    PRO
+                  </span>
+                )}
               </>
             ) : (
               "Fades"
             )}
 
-            {settings.showTimestamps && item.createdAt ? ` · ${formatTime(item.createdAt)}` : ""}
+            {settings.showTimestamps &&
+            item.createdAt
+              ? ` · ${formatTime(item.createdAt)}`
+              : ""}
           </div>
 
-          {item.role === "assistant" && item.streaming && !item.content ? (
-            <div className="thinking">
-              <span />
-              <span />
-              <span />
+          {/* =========================
+              GENERATING INDICATOR
+          ========================= */}
+
+          {item.role === "assistant" &&
+          item.streaming &&
+          !item.content ? (
+            <div
+              className="generating"
+              aria-label="Fades is generating a response"
+            >
+              Generating...
             </div>
           ) : (
             <div className="message-content">
               {item.role === "assistant" ? (
                 <>
-                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>{item.content}</ReactMarkdown>
-                  {item.streaming && <span className="streaming-cursor" />}
+                  <ReactMarkdown
+                    components={MARKDOWN_COMPONENTS}
+                  >
+                    {item.content}
+                  </ReactMarkdown>
+
+                  {item.streaming && (
+                    <span
+                      className="streaming-cursor"
+                      aria-hidden="true"
+                    />
+                  )}
                 </>
               ) : (
                 item.content
@@ -64,14 +96,32 @@ export function Messages({
             </div>
           )}
 
-          {item.role === "assistant" && !item.streaming && (
+          {/* =========================
+              MESSAGE ACTIONS
+          ========================= */}
+
+          {item.role === "assistant" &&
+          !item.streaming && (
             <div className="message-actions">
-              <button type="button" onClick={() => copyText(item.content)}>
+              <button
+                type="button"
+                onClick={() =>
+                  copyText(item.content)
+                }
+              >
                 Copy
               </button>
 
-              <button type="button" onClick={() => resendFrom(index)} disabled={loading}>
-                {item.error ? "Retry" : "Regenerate"}
+              <button
+                type="button"
+                onClick={() =>
+                  resendFrom(index)
+                }
+                disabled={loading}
+              >
+                {item.error
+                  ? "Retry"
+                  : "Regenerate"}
               </button>
             </div>
           )}
