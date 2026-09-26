@@ -31,13 +31,15 @@ export function Sidebar({
   profileOpen,
   setProfileOpen,
   openAuth,
-  setSettingsOpen,
   setAboutOpen,
   logout,
 }) {
   function renderChat(chat) {
     return (
-      <div key={chat.id} className={`chat-item ${activeChatId === chat.id ? "active" : ""}`}>
+      <div
+        key={chat.id}
+        className={`chat-item ${activeChatId === chat.id ? "active" : ""}`}
+      >
         {editingChatId === chat.id ? (
           <input
             className="chat-rename"
@@ -50,6 +52,7 @@ export function Sidebar({
                 event.preventDefault();
                 saveRename(chat.id);
               }
+
               if (event.key === "Escape") {
                 setEditingChatId(null);
                 setEditingTitle("");
@@ -57,8 +60,15 @@ export function Sidebar({
             }}
           />
         ) : (
-          <button className="chat-item-main" type="button" onClick={() => openChat(chat)}>
-            <span className="chat-icon">{chat.favorite ? "★" : "◌"}</span>
+          <button
+            className="chat-item-main"
+            type="button"
+            onClick={() => openChat(chat)}
+          >
+            <span className="chat-icon">
+              {chat.favorite ? "★" : "◌"}
+            </span>
+
             <span className="chat-title">{chat.title}</span>
           </button>
         )}
@@ -83,11 +93,21 @@ export function Sidebar({
               {chat.favorite ? "★" : "☆"}
             </button>
 
-            <button type="button" title="Rename" aria-label="Rename chat" onClick={() => startRename(chat)}>
+            <button
+              type="button"
+              title="Rename"
+              aria-label="Rename chat"
+              onClick={() => startRename(chat)}
+            >
               ···
             </button>
 
-            <button type="button" title="Delete" aria-label="Delete chat" onClick={() => deleteChat(chat.id)}>
+            <button
+              type="button"
+              title="Delete"
+              aria-label="Delete chat"
+              onClick={() => deleteChat(chat.id)}
+            >
               ×
             </button>
           </div>
@@ -111,7 +131,11 @@ export function Sidebar({
         <div className="sidebar-top">
           <div className="sidebar-brand">
             <div className="brand-mark">
-              <img src={logoSrc} alt="Fades" className="brand-mark-img" />
+              <img
+                src={logoSrc}
+                alt="Fades"
+                className="brand-mark-img"
+              />
             </div>
 
             <div className="brand-name">
@@ -143,6 +167,7 @@ export function Sidebar({
 
         <div className="sidebar-search">
           <span>⌕</span>
+
           <input
             ref={searchInputRef}
             value={search}
@@ -162,7 +187,9 @@ export function Sidebar({
           ) : filteredChats.length === 0 ? (
             <div className="empty-chats">
               <span className="empty-icon">◌</span>
+
               <p>{search ? "No matches" : "No chats yet"}</p>
+
               <small>
                 {search
                   ? "Try another search."
@@ -176,13 +203,17 @@ export function Sidebar({
               {pinnedChats.length > 0 && (
                 <div className="chat-group">
                   <div className="chat-group-title">Pinned</div>
+
                   {pinnedChats.map(renderChat)}
                 </div>
               )}
 
               {otherChats.length > 0 && (
                 <div className="chat-group">
-                  <div className="chat-group-title">{pinnedChats.length > 0 ? "Recent" : "Chats"}</div>
+                  <div className="chat-group-title">
+                    {pinnedChats.length > 0 ? "Recent" : "Chats"}
+                  </div>
+
                   {otherChats.map(renderChat)}
                 </div>
               )}
@@ -202,15 +233,24 @@ export function Sidebar({
               }
             }}
           >
-            <div className="user-avatar">{user ? avatarLetter : "?"}</div>
+            <div className="user-avatar">
+              {user ? avatarLetter : "?"}
+            </div>
 
             <div className="user-info">
               <strong className="user-name-line">
-                <span>{user ? user.displayName || user.username : "Guest"}</span>
+                <span>
+                  {user
+                    ? user.displayName || user.username
+                    : "Guest"}
+                </span>
+
                 {user?.plan === "pro" && <ProBadge />}
               </strong>
 
-              <span>{user ? user.email : "Guest mode"}</span>
+              <span>
+                {user ? user.email : "Guest mode"}
+              </span>
             </div>
 
             <span className="user-arrow">⌄</span>
@@ -221,8 +261,8 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => {
-                  setSettingsOpen(true);
                   setProfileOpen(false);
+                  window.location.href = "/settings";
                 }}
               >
                 Settings
@@ -238,7 +278,11 @@ export function Sidebar({
                 About Fades
               </button>
 
-              <button type="button" className="danger" onClick={logout}>
+              <button
+                type="button"
+                className="danger"
+                onClick={logout}
+              >
                 Sign out
               </button>
             </div>
