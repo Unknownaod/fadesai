@@ -566,3 +566,39 @@
 .fl-back:hover {
   color: #f2f2f8;
 }
+
+/* ---------- Verify email ---------- */
+
+.fl-sub b {
+  color: #f2f2f8;
+  word-break: break-all;
+}
+
+.fl-card input.fl-code-input {
+  height: 54px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-card input.fl-code-input::placeholder {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.fl-info {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(139, 124, 255, 0.1);
+  border: 1px solid rgba(139, 124, 255, 0.35);
+  color: #c4bcff;
+  font-size: 13px;
+}
+
+.fl-foot button:disabled {
+  color: #6c6c82;
+  cursor: default;
+}
