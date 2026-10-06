@@ -5,31 +5,29 @@ import { useSearchParams } from "next/navigation";
 import "./login.css";
 
 /*
- * =========================================================
  * FADES LOGIN  →  app/login/page.js   (served at fades.lol/login)
- * =========================================================
+ *
  * Uses the existing auth API (cookie session):
  *   GET  /auth/me      → current user (401 when signed out)
  *   POST /auth/login   → { email, password }
  *   POST /auth/signup  → { username, email, password }
- *
- * If your API expects different field names, change ONLY
- * buildBody() below.
+ *   POST /auth/logout
  *
  * Query params:
  *   ?from=browser   shows the "you can close this tab" screen
  *   ?next=/chat     where to go after login (default "/")
- *   ?code=<32 hex>  sign-in handoff from Fades Browser. After login the
- *                   page asks "Connect Fades Browser?" and, on confirm,
- *                   POSTs /auth/browser/link { code } so the browser can
- *                   claim its own token (no shared cookies needed).
+ *   ?code=<32 hex>  sign-in handoff from Fades Browser
+ *
+ * Remembered accounts (email + username only, never passwords) are kept
+ * in localStorage so the user can pick one, switch, or remove it.
  */
 
 const AUTH_API = "https://api.fades.lol/auth";
 const LOGO = "/logo.png";
 const CODE_RE = /^[a-f0-9]{32}$/;
+const KNOWN_KEY = "fades-known-accounts";
+const MAX_KNOWN = 5;
 
-/* short code shown on both sides so the user can confirm they match */
 function formatUserCode(code) {
   const text = code.slice(0, 8).toUpperCase();
 
@@ -40,6 +38,39 @@ function buildBody(mode, { username, email, password }) {
   return mode === "signup"
     ? { username: username.trim(), email: email.trim(), password }
     : { email: email.trim(), password };
+}
+
+/* ---------- remembered accounts ---------- */
+
+function loadKnown() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KNOWN_KEY) || "[]");
+
+    return Array.isArray(raw) ? raw.filter((a) => a && a.email) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveKnown(list) {
+  try {
+    localStorage.setItem(KNOWN_KEY, JSON.stringify(list.slice(0, MAX_KNOWN)));
+  } catch {}
+}
+
+function upsertKnown(list, entry) {
+  const key = entry.email.toLowerCase();
+
+  return [
+    { email: entry.email, username: entry.username || "", lastUsed: Date.now() },
+    ...list.filter((a) => a.email.toLowerCase() !== key),
+  ].slice(0, MAX_KNOWN);
+}
+
+function initialOf(account) {
+  const text = (account && (account.username || account.name || account.email)) || "?";
+
+  return text.trim().charAt(0).toUpperCase() || "?";
 }
 
 async function authFetch(path, options = {}) {
@@ -70,6 +101,22 @@ async function authFetch(path, options = {}) {
   return data;
 }
 
+function AccountCard({ account }) {
+  const name = account.username || account.name || account.email || "Your account";
+
+  return (
+    <div className="fl-current">
+      <span className="fl-avatar">{initialOf(account)}</span>
+
+      <span className="fl-account-text">
+        <strong>{name}</strong>
+
+        {account.email && account.email !== name && <small>{account.email}</small>}
+      </span>
+    </div>
+  );
+}
+
 function LoginForm() {
   const params = useSearchParams();
   const fromBrowser = params.get("from") === "browser";
@@ -89,8 +136,30 @@ function LoginForm() {
   const [link, setLink] = useState("idle"); // idle | linking | linked | cancelled
   const [linkError, setLinkError] = useState("");
 
-  const finish = (account) => {
+  const [known, setKnown] = useState([]);
+  const [view, setView] = useState("form"); // form | chooser
+  const [selected, setSelected] = useState(null); // remembered account being signed in to
+
+  const remember = (account, fallbackEmail = "") => {
+    const email = (account && account.email) || fallbackEmail;
+
+    if (!email) return;
+
+    setKnown((list) => {
+      const updated = upsertKnown(list, {
+        email,
+        username: (account && (account.username || account.name)) || "",
+      });
+
+      saveKnown(updated);
+
+      return updated;
+    });
+  };
+
+  const finish = (account, fallbackEmail) => {
     setUser(account);
+    remember(account, fallbackEmail);
 
     if (!fromBrowser && !code) window.location.assign(next);
   };
@@ -116,9 +185,13 @@ function LoginForm() {
     }
   };
 
-  /* already signed in? */
+  /* load remembered accounts + check for an existing session */
   useEffect(() => {
     let cancelled = false;
+    const list = loadKnown();
+
+    setKnown(list);
+    setView(list.length > 0 ? "chooser" : "form");
 
     authFetch("/me")
       .then((data) => {
@@ -126,6 +199,16 @@ function LoginForm() {
 
         if (!cancelled && account && (account.id || account.username || account.email)) {
           setUser(account);
+
+          if (account.email) {
+            const updated = upsertKnown(list, {
+              email: account.email,
+              username: account.username || account.name || "",
+            });
+
+            setKnown(updated);
+            saveKnown(updated);
+          }
         }
       })
       .catch(() => {})
@@ -138,6 +221,56 @@ function LoginForm() {
 
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
 
+  /* ---------- account picker actions ---------- */
+
+  const pickAccount = (account) => {
+    setSelected(account);
+    setMode("login");
+    setError("");
+    setForm((f) => ({ ...f, email: account.email, password: "" }));
+    setView("form");
+  };
+
+  const useAnotherAccount = () => {
+    setSelected(null);
+    setMode("login");
+    setError("");
+    setForm({ username: "", email: "", password: "" });
+    setView("form");
+  };
+
+  const backToChooser = () => {
+    setSelected(null);
+    setError("");
+    setForm((f) => ({ ...f, password: "" }));
+    setView("chooser");
+  };
+
+  const forgetAccount = (email) => {
+    const updated = known.filter((a) => a.email.toLowerCase() !== email.toLowerCase());
+
+    setKnown(updated);
+    saveKnown(updated);
+
+    if (updated.length === 0) setView("form");
+  };
+
+  const signOut = async (nextView) => {
+    try {
+      await authFetch("/logout", { method: "POST" });
+    } catch {}
+
+    setUser(null);
+    setLink("idle");
+    setLinkError("");
+    setSelected(null);
+    setError("");
+    setForm((f) => ({ ...f, password: "" }));
+    setView(nextView || (known.length > 0 ? "chooser" : "form"));
+  };
+
+  /* ---------- submit ---------- */
+
   const submit = async (event) => {
     event.preventDefault();
 
@@ -145,8 +278,10 @@ function LoginForm() {
 
     setError("");
 
-    if (!form.email.trim() || !form.password) {
-      setError("Enter your email and password.");
+    const email = selected ? selected.email : form.email;
+
+    if (!email.trim() || !form.password) {
+      setError(selected ? "Enter your password." : "Enter your email and password.");
 
       return;
     }
@@ -170,7 +305,7 @@ function LoginForm() {
     try {
       const data = await authFetch(mode === "signup" ? "/signup" : "/login", {
         method: "POST",
-        body: JSON.stringify(buildBody(mode, form)),
+        body: JSON.stringify(buildBody(mode, { ...form, email })),
       });
 
       // some APIs return the user, some only set the cookie – confirm with /me
@@ -182,7 +317,7 @@ function LoginForm() {
         account = me && (me.user || me);
       }
 
-      finish(account || {});
+      finish(account || {}, email.trim());
     } catch (submitError) {
       setError(
         submitError.status === undefined
@@ -194,20 +329,10 @@ function LoginForm() {
     }
   };
 
-  const signOut = async () => {
-    try {
-      await authFetch("/logout", { method: "POST" });
-    } catch {}
-
-    setUser(null);
-  };
-
   const name = user && (user.username || user.name || user.email || "your account");
 
   return (
     <main className="fl-page">
-      <style>{css}</style>
-
       <div className="fl-glow fl-glow-1" />
       <div className="fl-glow fl-glow-2" />
 
@@ -222,6 +347,7 @@ function LoginForm() {
             <div className="fl-spinner" />
           </div>
         ) : user && code ? (
+          /* ---------- signed in + browser handoff ---------- */
           <div className="fl-done">
             {link === "linked" ? (
               <>
@@ -239,17 +365,20 @@ function LoginForm() {
                 <h1>Not connected</h1>
 
                 <p>Nothing was shared with the browser. You can close this tab.</p>
+
+                <button className="fl-link" onClick={() => setLink("idle")}>
+                  Changed your mind? Go back
+                </button>
               </>
             ) : (
               <>
                 <h1>Connect Fades Browser?</h1>
 
-                <p>
-                  Signed in as <b>{name}</b>. Only continue if this code
-                  matches the one shown in your browser:
-                </p>
+                <p>Only continue if this code matches the one shown in your browser:</p>
 
                 <div className="fl-code">{formatUserCode(code)}</div>
+
+                <AccountCard account={user} />
 
                 {linkError && (
                   <div className="fl-error" role="alert">
@@ -270,21 +399,28 @@ function LoginForm() {
                     Cancel
                   </button>
                 </div>
+
+                <button className="fl-link" onClick={() => signOut()}>
+                  Not you? Switch account
+                </button>
               </>
             )}
           </div>
         ) : user ? (
+          /* ---------- signed in ---------- */
           <div className="fl-done">
             <div className="fl-check">✓</div>
 
             <h1>You're signed in</h1>
 
-            <p>
-              Signed in as <b>{name}</b>.
-              {fromBrowser
-                ? " You can close this tab and head back to Fades Browser — your sync will pick up automatically."
-                : ""}
-            </p>
+            <AccountCard account={user} />
+
+            {fromBrowser && (
+              <p>
+                You can close this tab and head back to Fades Browser — your
+                sync will pick up automatically.
+              </p>
+            )}
 
             <div className="fl-actions">
               {!fromBrowser && (
@@ -293,77 +429,161 @@ function LoginForm() {
                 </button>
               )}
 
-              <button className="fl-ghost" onClick={signOut}>
-                Sign out
+              <button className="fl-ghost" onClick={() => signOut()}>
+                Switch account
               </button>
             </div>
+
+            <button className="fl-link" onClick={() => signOut("form")}>
+              Sign out
+            </button>
           </div>
-        ) : (
+        ) : view === "chooser" && known.length > 0 ? (
+          /* ---------- choose an account ---------- */
           <>
-            <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+            <h1>Choose an account</h1>
 
             <p className="fl-sub">
-              {mode === "login"
+              Pick an account to continue to Fades{code || fromBrowser ? " Browser" : ""}.
+            </p>
+
+            <ul className="fl-accounts">
+              {known.map((account) => (
+                <li key={account.email}>
+                  <button className="fl-account" onClick={() => pickAccount(account)}>
+                    <span className="fl-avatar">{initialOf(account)}</span>
+
+                    <span className="fl-account-text">
+                      <strong>{account.username || account.email}</strong>
+
+                      {account.username && <small>{account.email}</small>}
+                    </span>
+
+                    <span className="fl-account-arrow">›</span>
+                  </button>
+
+                  <button
+                    className="fl-account-remove"
+                    onClick={() => forgetAccount(account.email)}
+                    title="Remove from this device"
+                    aria-label={`Remove ${account.email} from this device`}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+
+              <li>
+                <button className="fl-account fl-account-other" onClick={useAnotherAccount}>
+                  <span className="fl-avatar fl-avatar-plus">＋</span>
+
+                  <span className="fl-account-text">
+                    <strong>Use another account</strong>
+                  </span>
+                </button>
+              </li>
+            </ul>
+
+            <p className="fl-hint">
+              Accounts are remembered on this device only. Passwords are never
+              saved.
+            </p>
+          </>
+        ) : (
+          /* ---------- sign in / create account ---------- */
+          <>
+            {known.length > 0 && (
+              <button className="fl-back" onClick={backToChooser}>
+                ‹ Choose an account
+              </button>
+            )}
+
+            <h1>
+              {selected
+                ? "Welcome back"
+                : mode === "login"
+                ? "Welcome back"
+                : "Create your account"}
+            </h1>
+
+            <p className="fl-sub">
+              {selected
+                ? "Enter your password to continue."
+                : mode === "login"
                 ? "Sign in to sync your bookmarks, history and tabs."
                 : "One account for Fades Browser, Chat and Mail."}
             </p>
 
-            <div className="fl-tabs" role="tablist">
-              <button
-                role="tab"
-                aria-selected={mode === "login"}
-                className={mode === "login" ? "active" : ""}
-                onClick={() => {
-                  setMode("login");
-                  setError("");
-                }}
-              >
-                Sign in
-              </button>
+            {!selected && (
+              <div className="fl-tabs" role="tablist">
+                <button
+                  role="tab"
+                  aria-selected={mode === "login"}
+                  className={mode === "login" ? "active" : ""}
+                  onClick={() => {
+                    setMode("login");
+                    setError("");
+                  }}
+                >
+                  Sign in
+                </button>
 
-              <button
-                role="tab"
-                aria-selected={mode === "signup"}
-                className={mode === "signup" ? "active" : ""}
-                onClick={() => {
-                  setMode("signup");
-                  setError("");
-                }}
-              >
-                Create account
-              </button>
-            </div>
+                <button
+                  role="tab"
+                  aria-selected={mode === "signup"}
+                  className={mode === "signup" ? "active" : ""}
+                  onClick={() => {
+                    setMode("signup");
+                    setError("");
+                  }}
+                >
+                  Create account
+                </button>
+              </div>
+            )}
 
             <form onSubmit={submit} noValidate>
-              {mode === "signup" && (
-                <label>
-                  <span>Username</span>
+              {selected ? (
+                <div className="fl-selected">
+                  <AccountCard account={selected} />
 
-                  <input
-                    value={form.username}
-                    onChange={set("username")}
-                    autoComplete="username"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    placeholder="yourname"
-                  />
-                </label>
+                  <button type="button" className="fl-link" onClick={backToChooser}>
+                    Not you?
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {mode === "signup" && (
+                    <label>
+                      <span>Username</span>
+
+                      <input
+                        value={form.username}
+                        onChange={set("username")}
+                        autoComplete="username"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        placeholder="yourname"
+                      />
+                    </label>
+                  )}
+
+                  <label>
+                    <span>Email</span>
+
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={set("email")}
+                      autoComplete="email"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      placeholder="you@example.com"
+                      autoFocus
+                    />
+                  </label>
+                </>
               )}
-
-              <label>
-                <span>Email</span>
-
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={set("email")}
-                  autoComplete="email"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  placeholder="you@example.com"
-                  autoFocus
-                />
-              </label>
 
               <label>
                 <span>Password</span>
@@ -375,6 +595,7 @@ function LoginForm() {
                     onChange={set("password")}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                     placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
+                    autoFocus={Boolean(selected)}
                   />
 
                   <button
@@ -398,19 +619,21 @@ function LoginForm() {
               </button>
             </form>
 
-            <p className="fl-foot">
-              {mode === "login" ? "New to Fades? " : "Already have an account? "}
+            {!selected && (
+              <p className="fl-foot">
+                {mode === "login" ? "New to Fades? " : "Already have an account? "}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === "login" ? "signup" : "login");
-                  setError("");
-                }}
-              >
-                {mode === "login" ? "Create an account" : "Sign in"}
-              </button>
-            </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    setError("");
+                  }}
+                >
+                  {mode === "login" ? "Create an account" : "Sign in"}
+                </button>
+              </p>
+            )}
           </>
         )}
       </section>
@@ -425,47 +648,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-
-const css = `
-.fl-page{--accent:#8b7cff;--accent-2:#5ec8ff;position:relative;min-height:100vh;display:grid;place-items:center;padding:24px;background:#0a0a10;color:#f2f2f8;font-family:Inter,"Segoe UI",system-ui,sans-serif;overflow:hidden}
-.fl-page *{box-sizing:border-box}
-.fl-glow{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none}
-.fl-glow-1{width:480px;height:480px;top:-180px;left:-120px;background:var(--accent);opacity:.3}
-.fl-glow-2{width:420px;height:420px;right:-120px;bottom:-180px;background:var(--accent-2);opacity:.18}
-.fl-card{position:relative;width:100%;max-width:420px;padding:32px 30px 28px;border-radius:26px;background:rgba(20,20,31,.88);border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 70px rgba(0,0,0,.6);backdrop-filter:blur(18px)}
-.fl-brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;font-size:20px;letter-spacing:-.02em}
-.fl-brand img{object-fit:contain}
-.fl-card h1{margin:0;font-size:26px;letter-spacing:-.03em}
-.fl-sub{margin:6px 0 20px;color:#a4a4b8;font-size:14px}
-.fl-tabs{display:flex;gap:4px;padding:4px;margin-bottom:18px;border-radius:12px;background:#0f0f18;border:1px solid rgba(255,255,255,.07)}
-.fl-tabs button{flex:1;padding:8px;border:0;border-radius:8px;background:none;color:#a4a4b8;font:inherit;font-size:13px;font-weight:500;cursor:pointer}
-.fl-tabs button.active{background:rgba(139,124,255,.16);color:#8b7cff;font-weight:700;box-shadow:inset 0 0 0 1px rgba(139,124,255,.45)}
-.fl-card form{display:flex;flex-direction:column;gap:14px}
-.fl-card label{display:flex;flex-direction:column;gap:6px}
-.fl-card label>span{color:#a4a4b8;font-size:12.5px;font-weight:600}
-.fl-card input{width:100%;height:44px;padding:0 14px;border-radius:12px;background:#0f0f18;border:1px solid rgba(255,255,255,.12);color:inherit;font:inherit;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
-.fl-card input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,124,255,.16)}
-.fl-password{position:relative}
-.fl-password input{padding-right:64px}
-.fl-password button{position:absolute;top:50%;right:8px;transform:translateY(-50%);padding:6px 10px;border:0;border-radius:8px;background:none;color:#a4a4b8;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
-.fl-password button:hover{color:#f2f2f8}
-.fl-error{padding:10px 14px;border-radius:12px;background:rgba(255,92,108,.1);border:1px solid rgba(255,92,108,.4);color:#ff8f9b;font-size:13px}
-.fl-primary{height:46px;border:0;border-radius:999px;background:linear-gradient(135deg,var(--accent),#6a5bff);color:#fff;font:inherit;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(139,124,255,.35);transition:filter .15s,transform .15s}
-.fl-primary:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
-.fl-primary:disabled{opacity:.6;cursor:default}
-.fl-ghost{height:46px;padding:0 22px;border-radius:999px;background:none;border:1px solid rgba(255,255,255,.14);color:inherit;font:inherit;font-weight:600;cursor:pointer}
-.fl-ghost:hover{border-color:var(--accent)}
-.fl-foot{margin:18px 0 0;text-align:center;color:#a4a4b8;font-size:13px}
-.fl-foot button{padding:0;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer}
-.fl-center{display:grid;place-items:center;padding:40px 0}
-.fl-spinner{width:32px;height:32px;border-radius:50%;border:3px solid #232335;border-top-color:var(--accent);animation:fl-spin .8s linear infinite}
-.fl-done{text-align:center}
-.fl-done p{margin:10px 0 0;color:#a4a4b8;font-size:14px;line-height:1.55}
-.fl-done b{color:#f2f2f8}
-.fl-check{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 14px;border-radius:50%;background:rgba(61,220,151,.15);color:#3ddc97;font-size:26px;font-weight:700}
-.fl-actions{display:flex;justify-content:center;gap:10px;margin-top:22px}
-.fl-actions .fl-primary{padding:0 28px}
-.fl-done .fl-error{margin-top:12px}
-.fl-code{width:max-content;margin:16px auto 4px;padding:12px 22px;border-radius:14px;background:rgba(139,124,255,.16);border:1px dashed rgba(139,124,255,.5);color:#8b7cff;font-size:28px;font-weight:700;letter-spacing:.2em;font-variant-numeric:tabular-nums}
-@keyframes fl-spin{to{transform:rotate(360deg)}}
-`;
