@@ -7,11 +7,15 @@ import "./login.css";
 /*
  * FADES LOGIN  →  app/login/page.js   (served at fades.lol/login)
  *
- * Uses the existing auth API (cookie session):
- *   GET  /auth/me      → current user (401 when signed out)
- *   POST /auth/login   → { email, password }
- *   POST /auth/signup  → { username, email, password }
+ * Auth API (cookie session):
+ *   GET  /auth/me                  → current user (401 when signed out)
+ *   POST /auth/login               → { email, password }
+ *   POST /auth/signup              → { username, email, password }
+ *                                    (returns requiresEmailVerification, no session yet)
+ *   POST /auth/verify-email        → { email, code }  (sets session cookie)
+ *   POST /auth/resend-verification → { email }
  *   POST /auth/logout
+ *   POST /auth/browser/link        → { code }
  *
  * Query params:
  *   ?from=browser   shows the "you can close this tab" screen
@@ -27,6 +31,7 @@ const LOGO = "/logo.png";
 const CODE_RE = /^[a-f0-9]{32}$/;
 const KNOWN_KEY = "fades-known-accounts";
 const MAX_KNOWN = 5;
+const RESEND_COOLDOWN = 30;
 
 function formatUserCode(code) {
   const text = code.slice(0, 8).toUpperCase();
@@ -86,14 +91,19 @@ async function authFetch(path, options = {}) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const needsVerify = Boolean(data && data.requiresEmailVerification);
+
     const error = new Error(
-      (data && (data.error || data.message)) ||
-        (response.status === 401
-          ? "Wrong email or password."
-          : `Something went wrong (${response.status}).`)
+      needsVerify
+        ? "Please verify your email first."
+        : (data && (data.error || data.message)) ||
+            (response.status === 401
+              ? "Wrong email or password."
+              : `Something went wrong (${response.status}).`)
     );
 
     error.status = response.status;
+    error.data = data;
 
     throw error;
   }
@@ -137,8 +147,15 @@ function LoginForm() {
   const [linkError, setLinkError] = useState("");
 
   const [known, setKnown] = useState([]);
-  const [view, setView] = useState("form"); // form | chooser
+  const [view, setView] = useState("form"); // form | chooser | verify
   const [selected, setSelected] = useState(null); // remembered account being signed in to
+
+  const [verifyEmail, setVerifyEmail] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifyInfo, setVerifyInfo] = useState("");
+  const [cooldown, setCooldown] = useState(0);
 
   const remember = (account, fallbackEmail = "") => {
     const email = (account && account.email) || fallbackEmail;
@@ -219,6 +236,15 @@ function LoginForm() {
     };
   }, []);
 
+  /* resend cooldown timer */
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
 
   /* ---------- account picker actions ---------- */
@@ -269,6 +295,93 @@ function LoginForm() {
     setView(nextView || (known.length > 0 ? "chooser" : "form"));
   };
 
+  /* ---------- email verification ---------- */
+
+  const resendCode = async (email = verifyEmail) => {
+    if (!email || cooldown > 0) return;
+
+    setVerifyError("");
+    setVerifyInfo("");
+
+    try {
+      await authFetch("/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+
+      setVerifyInfo("A new code is on its way.");
+      setCooldown(RESEND_COOLDOWN);
+    } catch (failure) {
+      setVerifyError(
+        failure.status === undefined
+          ? "Can't reach Fades right now. Try again."
+          : failure.message
+      );
+    }
+  };
+
+  const goVerify = (email, { resend = false } = {}) => {
+    setVerifyEmail(email);
+    setVerifyCode("");
+    setVerifyError("");
+    setVerifyInfo(resend ? "" : `We sent a code to ${email}.`);
+    setView("verify");
+
+    if (resend) resendCode(email);
+    else setCooldown(RESEND_COOLDOWN);
+  };
+
+  const submitVerify = async (event) => {
+    event.preventDefault();
+
+    if (verifyBusy) return;
+
+    const value = verifyCode.trim();
+
+    if (!value) {
+      setVerifyError("Enter the code from your email.");
+
+      return;
+    }
+
+    setVerifyBusy(true);
+    setVerifyError("");
+
+    try {
+      const data = await authFetch("/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ email: verifyEmail, code: value }),
+      });
+
+      // the cookie is set now – with a ?code= this lands on "Connect Fades Browser?"
+      let account = data && data.user;
+
+      if (!account) {
+        const me = await authFetch("/me");
+
+        account = me && (me.user || me);
+      }
+
+      finish(account || {}, verifyEmail);
+    } catch (failure) {
+      setVerifyError(
+        failure.status === undefined
+          ? "Can't reach Fades right now. Try again."
+          : failure.message
+      );
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
+
+  const leaveVerify = () => {
+    setVerifyCode("");
+    setVerifyError("");
+    setVerifyInfo("");
+    setMode("login");
+    setView(known.length > 0 ? "chooser" : "form");
+  };
+
   /* ---------- submit ---------- */
 
   const submit = async (event) => {
@@ -308,6 +421,14 @@ function LoginForm() {
         body: JSON.stringify(buildBody(mode, { ...form, email })),
       });
 
+      // new accounts must verify their email before they get a session
+      if (data && data.requiresEmailVerification) {
+        setForm((f) => ({ ...f, password: "" }));
+        goVerify(email.trim());
+
+        return;
+      }
+
       // some APIs return the user, some only set the cookie – confirm with /me
       let account = data && (data.user || (data.id || data.username ? data : null));
 
@@ -319,11 +440,16 @@ function LoginForm() {
 
       finish(account || {}, email.trim());
     } catch (submitError) {
-      setError(
-        submitError.status === undefined
-          ? "Can't reach Fades right now. Check your connection and try again."
-          : submitError.message
-      );
+      if (submitError.data && submitError.data.requiresEmailVerification) {
+        // existing account that never verified: send a fresh code
+        goVerify(email.trim(), { resend: true });
+      } else {
+        setError(
+          submitError.status === undefined
+            ? "Can't reach Fades right now. Check your connection and try again."
+            : submitError.message
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -438,6 +564,58 @@ function LoginForm() {
               Sign out
             </button>
           </div>
+        ) : view === "verify" ? (
+          /* ---------- verify email ---------- */
+          <>
+            <h1>Verify your email</h1>
+
+            <p className="fl-sub">
+              Enter the code we sent to <b>{verifyEmail}</b>
+              {code ? ", then you can connect Fades Browser." : "."}
+            </p>
+
+            <form onSubmit={submitVerify} noValidate>
+              <label>
+                <span>Verification code</span>
+
+                <input
+                  className="fl-code-input"
+                  value={verifyCode}
+                  onChange={(event) => setVerifyCode(event.target.value)}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  maxLength={12}
+                  placeholder="Enter code"
+                  autoFocus
+                />
+              </label>
+
+              {verifyError && (
+                <div className="fl-error" role="alert">
+                  {verifyError}
+                </div>
+              )}
+
+              {verifyInfo && !verifyError && <div className="fl-info">{verifyInfo}</div>}
+
+              <button className="fl-primary" type="submit" disabled={verifyBusy}>
+                {verifyBusy ? "Verifying…" : "Verify"}
+              </button>
+            </form>
+
+            <p className="fl-foot">
+              Didn't get it?{" "}
+              <button type="button" onClick={() => resendCode()} disabled={cooldown > 0}>
+                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+              </button>
+            </p>
+
+            <button className="fl-link" onClick={leaveVerify}>
+              ‹ Use a different email
+            </button>
+          </>
         ) : view === "chooser" && known.length > 0 ? (
           /* ---------- choose an account ---------- */
           <>
