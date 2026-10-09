@@ -4804,3 +4804,16 @@ css
 .chat-actions button {
   filter: grayscale(1);
 }
+
+.hero.gaming-hero {
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.gaming-hub {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+}
