@@ -1,6 +1,21 @@
+
 "use client";
 
+import { useState } from "react";
 import { ProBadge } from "./ProBadge";
+
+const GAMING_PAGES = [
+  { id: "gaming", label: "Gaming Hub", icon: "🎮", description: "Your gaming dashboard" },
+  { id: "gaming-news", label: "Gaming News", icon: "📰", description: "Latest stories from gaming sites" },
+  { id: "gaming-releases", label: "New Releases", icon: "🚀", description: "New and upcoming games" },
+  { id: "gaming-esports", label: "Esports", icon: "🏆", description: "Competitive gaming news" },
+  { id: "gaming-updates", label: "Game Updates", icon: "🔄", description: "Patches and announcements" },
+  { id: "gaming-deals", label: "Gaming Deals", icon: "🏷️", description: "Sales and discounts" },
+  { id: "gaming-pc", label: "PC Gaming", icon: "🖥️", description: "PC games and hardware" },
+  { id: "gaming-playstation", label: "PlayStation", icon: "🎯", description: "PlayStation news" },
+  { id: "gaming-xbox", label: "Xbox", icon: "🟩", description: "Xbox news" },
+  { id: "gaming-nintendo", label: "Nintendo", icon: "🍄", description: "Nintendo news" },
+];
 
 export function Sidebar({
   sidebarOpen,
@@ -12,283 +27,284 @@ export function Sidebar({
   search,
   setSearch,
   searchInputRef,
-  filteredChats,
-  pinnedChats,
-  otherChats,
+  filteredChats = [],
+  pinnedChats = [],
+  otherChats = [],
   editingChatId,
   editingTitle,
   setEditingTitle,
-  openChat,
   activeChatId,
-  togglePin,
-  toggleFavorite,
+  openChat,
+  deleteChat,
   startRename,
   saveRename,
-  setEditingChatId,
-  deleteChat,
-  user,
-  avatarLetter,
-  profileOpen,
-  setProfileOpen,
-  openAuth,
-  setAboutOpen,
-  logout,
+  cancelRename,
+  togglePin,
+  toggleFavorite,
+  activePage = "chat",
+  onNavigate,
 }) {
-  function renderChat(chat) {
+  const [gamingExpanded, setGamingExpanded] = useState(
+    activePage.startsWith("gaming")
+  );
+
+  const navigate = (page) => {
+    onNavigate?.(page);
+    if (typeof window !== "undefined" && window.innerWidth < 760) {
+      setSidebarOpen?.(false);
+    }
+  };
+
+  const renderChat = (chat) => {
+    const id = chat.id ?? chat._id;
+    const title = chat.title || "New chat";
+    const isActive = id === activeChatId;
+    const isEditing = id === editingChatId;
+
     return (
       <div
-        key={chat.id}
-        className={`chat-item ${activeChatId === chat.id ? "active" : ""}`}
+        key={id}
+        className={`sidebar-chat ${isActive ? "active" : ""}`}
       >
-        {editingChatId === chat.id ? (
-          <input
-            className="chat-rename"
-            value={editingTitle}
-            autoFocus
-            onChange={(event) => setEditingTitle(event.target.value)}
-            onBlur={() => saveRename(chat.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                saveRename(chat.id);
-              }
-
-              if (event.key === "Escape") {
-                setEditingChatId(null);
-                setEditingTitle("");
-              }
+        {isEditing ? (
+          <form
+            className="sidebar-chat-edit"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveRename?.(id);
             }}
-          />
-        ) : (
-          <button
-            className="chat-item-main"
-            type="button"
-            onClick={() => openChat(chat)}
           >
-            <span className="chat-icon">
-              {chat.favorite ? "★" : "◌"}
-            </span>
-
-            <span className="chat-title">{chat.title}</span>
-          </button>
-        )}
-
-        {editingChatId !== chat.id && (
-          <div className="chat-actions">
-            <button
-              type="button"
-              title={chat.pinned ? "Unpin" : "Pin"}
-              aria-label={chat.pinned ? "Unpin chat" : "Pin chat"}
-              onClick={() => togglePin(chat.id)}
-            >
-              {chat.pinned ? "◆" : "◇"}
-            </button>
-
-            <button
-              type="button"
-              title="Favorite"
-              aria-label="Favorite chat"
-              onClick={() => toggleFavorite(chat.id)}
-            >
-              {chat.favorite ? "★" : "☆"}
-            </button>
-
-            <button
-              type="button"
-              title="Rename"
+            <input
+              autoFocus
+              value={editingTitle ?? title}
+              onChange={(event) => setEditingTitle?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") cancelRename?.();
+              }}
               aria-label="Rename chat"
-              onClick={() => startRename(chat)}
-            >
-              ···
-            </button>
-
+            />
+            <button type="submit" title="Save title">✓</button>
+          </form>
+        ) : (
+          <>
             <button
               type="button"
-              title="Delete"
-              aria-label="Delete chat"
-              onClick={() => deleteChat(chat.id)}
+              className="sidebar-chat-open"
+              onClick={() => openChat?.(id)}
+              title={title}
             >
-              ×
+              <span className="sidebar-chat-icon">
+                {chat.favorite ? "⭐" : "💬"}
+              </span>
+              <span className="sidebar-chat-title">{title}</span>
+              {chat.pinned && <span title="Pinned">📌</span>}
             </button>
-          </div>
+
+            <div className="sidebar-chat-actions">
+              <button
+                type="button"
+                title="Rename chat"
+                onClick={() => startRename?.(id, title)}
+              >
+                ✏️
+              </button>
+              <button
+                type="button"
+                title={chat.pinned ? "Unpin chat" : "Pin chat"}
+                onClick={() => togglePin?.(id)}
+              >
+                📌
+              </button>
+              <button
+                type="button"
+                title={chat.favorite ? "Remove favorite" : "Add favorite"}
+                onClick={() => toggleFavorite?.(id)}
+              >
+                {chat.favorite ? "★" : "☆"}
+              </button>
+              <button
+                type="button"
+                title="Delete chat"
+                onClick={() => deleteChat?.(id)}
+              >
+                🗑️
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
-  }
+  };
 
   return (
     <>
       {sidebarOpen && (
         <button
-          className="sidebar-overlay"
           type="button"
+          className="sidebar-backdrop"
           aria-label="Close sidebar"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setSidebarOpen?.(false)}
         />
       )}
 
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="sidebar-top">
-          <div className="sidebar-brand">
-            <div className="brand-mark">
-              <img
-                src={logoSrc}
-                alt="Fades"
-                className="brand-mark-img"
-              />
-            </div>
-
-            <div className="brand-name">
-              Fades
-              <small>AI</small>
-            </div>
-          </div>
+      <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+        <div className="sidebar-header">
+          <button
+            type="button"
+            className="sidebar-brand"
+            onClick={() => navigate("chat")}
+            title="Fades AI home"
+          >
+            <img src={logoSrc || "/logo.png"} alt="" className="sidebar-logo" />
+            <span>Fades AI</span>
+            <ProBadge />
+          </button>
 
           <button
-            className="sidebar-close"
             type="button"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
+            className="sidebar-close"
+            onClick={() => setSidebarOpen?.(!sidebarOpen)}
+            aria-label="Toggle sidebar"
           >
-            ×
+            {sidebarOpen ? "‹" : "›"}
           </button>
         </div>
 
-        <button
-          className="sidebar-new-chat"
-          type="button"
-          onClick={createChat}
-          disabled={loading || cloudChatsLoading}
-        >
-          <span>+</span>
-          <strong>New chat</strong>
-          <kbd>⌘K</kbd>
-        </button>
-
-        <div className="sidebar-search">
-          <span>⌕</span>
-
-          <input
-            ref={searchInputRef}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search chats"
-            aria-label="Search chats"
-          />
-        </div>
-
-        <div className="chat-list">
-          {cloudChatsLoading ? (
-            <div className="empty-chats">
-              <span className="empty-icon">◌</span>
-              <p>Loading chats</p>
-              <small>Syncing your Fades account.</small>
-            </div>
-          ) : filteredChats.length === 0 ? (
-            <div className="empty-chats">
-              <span className="empty-icon">◌</span>
-
-              <p>{search ? "No matches" : "No chats yet"}</p>
-
-              <small>
-                {search
-                  ? "Try another search."
-                  : user
-                  ? "Start a conversation and it will be saved to your account."
-                  : "Start a conversation. Guest chats are temporary."}
-              </small>
-            </div>
-          ) : (
-            <>
-              {pinnedChats.length > 0 && (
-                <div className="chat-group">
-                  <div className="chat-group-title">Pinned</div>
-
-                  {pinnedChats.map(renderChat)}
-                </div>
-              )}
-
-              {otherChats.length > 0 && (
-                <div className="chat-group">
-                  <div className="chat-group-title">
-                    {pinnedChats.length > 0 ? "Recent" : "Chats"}
-                  </div>
-
-                  {otherChats.map(renderChat)}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="sidebar-bottom">
+        <div className="sidebar-main-actions">
           <button
-            className="sidebar-user"
             type="button"
+            className="sidebar-primary-button"
             onClick={() => {
-              if (user) {
-                setProfileOpen((current) => !current);
-              } else {
-                openAuth("login");
-              }
+              navigate("chat");
+              createChat?.();
+            }}
+            disabled={loading}
+          >
+            <span>＋</span>
+            <span>New chat</span>
+          </button>
+
+          <button
+            type="button"
+            className={`sidebar-nav-button ${activePage === "chat-search" ? "selected" : ""}`}
+            onClick={() => {
+              navigate("chat");
+              searchInputRef?.current?.focus();
             }}
           >
-            <div className="user-avatar">
-              {user ? avatarLetter : "?"}
-            </div>
+            <span>🔎</span>
+            <span>Search chats</span>
+          </button>
+        </div>
 
-            <div className="user-info">
-              <strong className="user-name-line">
-                <span>
-                  {user
-                    ? user.displayName || user.username
-                    : "Guest"}
-                </span>
-
-                {user?.plan === "pro" && <ProBadge />}
-              </strong>
-
-              <span>
-                {user ? user.email : "Guest mode"}
-              </span>
-            </div>
-
-            <span className="user-arrow">⌄</span>
+        <div className="sidebar-section">
+          <button
+            type="button"
+            className={`sidebar-section-heading ${activePage.startsWith("gaming") ? "selected" : ""}`}
+            onClick={() => {
+              setGamingExpanded((expanded) => !expanded);
+              navigate("gaming");
+            }}
+            aria-expanded={gamingExpanded}
+          >
+            <span className="sidebar-section-heading-left">
+              <span>🎮</span>
+              <span>Gaming</span>
+            </span>
+            <span className="sidebar-chevron">{gamingExpanded ? "⌄" : "›"}</span>
           </button>
 
-          {profileOpen && user && (
-            <div className="profile-menu">
-              <button
-                type="button"
-                onClick={() => {
-                  setProfileOpen(false);
-                  window.location.href = "/settings";
-                }}
-              >
-                Settings
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAboutOpen(true);
-                  setProfileOpen(false);
-                }}
-              >
-                About Fades
-              </button>
-
-              <button
-                type="button"
-                className="danger"
-                onClick={logout}
-              >
-                Sign out
-              </button>
+          {gamingExpanded && (
+            <div className="sidebar-gaming-links">
+              {GAMING_PAGES.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`sidebar-nav-button sidebar-gaming-button ${
+                    activePage === page.id ? "selected" : ""
+                  }`}
+                  onClick={() => navigate(page.id)}
+                  title={page.description}
+                >
+                  <span className="sidebar-nav-icon">{page.icon}</span>
+                  <span>{page.label}</span>
+                </button>
+              ))}
             </div>
           )}
+        </div>
+
+        <div className="sidebar-search-wrap">
+          <input
+            ref={searchInputRef}
+            value={search ?? ""}
+            onChange={(event) => setSearch?.(event.target.value)}
+            placeholder="Search your chats..."
+            className="sidebar-search"
+            aria-label="Search chats"
+          />
+          {search && (
+            <button
+              type="button"
+              className="sidebar-search-clear"
+              onClick={() => setSearch?.("")}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="sidebar-chat-list">
+          {cloudChatsLoading && (
+            <div className="sidebar-empty">Syncing your chats…</div>
+          )}
+
+          {!search && pinnedChats.length > 0 && (
+            <section className="sidebar-chat-group">
+              <div className="sidebar-chat-group-title">PINNED</div>
+              {pinnedChats.map(renderChat)}
+            </section>
+          )}
+
+          <section className="sidebar-chat-group">
+            <div className="sidebar-chat-group-title">
+              {search ? "SEARCH RESULTS" : "RECENT CHATS"}
+            </div>
+
+            {filteredChats.length > 0 ? (
+              filteredChats.map(renderChat)
+            ) : (
+              <div className="sidebar-empty">
+                {search ? "No chats match your search." : "Your conversations will appear here."}
+              </div>
+            )}
+          </section>
+
+          {!search && otherChats.length > 0 && (
+            <section className="sidebar-chat-group">
+              <div className="sidebar-chat-group-title">OTHER CHATS</div>
+              {otherChats.map(renderChat)}
+            </section>
+          )}
+        </div>
+
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className={`sidebar-nav-button ${activePage === "settings" ? "selected" : ""}`}
+            onClick={() => navigate("settings")}
+          >
+            <span>⚙️</span>
+            <span>Settings</span>
+          </button>
+          <div className="sidebar-footer-caption">
+            Fades AI · Gaming and beyond
+          </div>
         </div>
       </aside>
     </>
   );
 }
+
+export default Sidebar;
