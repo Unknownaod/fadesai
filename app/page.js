@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import { Hero } from "./components/Hero";
 import { Messages } from "./components/Messages";
 import { Composer } from "./components/Composer";
 import { Toasts } from "./components/Toasts";
+import GamingHub from "./components/GamingHub";
 
 import { AuthModal } from "./components/modals/AuthModal";
 import { VerificationModal } from "./components/modals/VerificationModal";
@@ -37,20 +39,18 @@ export default function Home() {
   );
 }
 
-// Split out so useChats can be re-created once `user` is known, without
-// breaking the rules of hooks (user comes from useAuth, which itself needs
-// a couple of callbacks from useChats).
+// Split out so useChats can be recreated once `user` is known.
 function HomeInner({ toasts, showToast, settings, updateSetting }) {
   const [user, setUserBridge] = useState(null);
 
   const chats = useChats({ user, showToast });
+
   const auth = useAuth({
     showToast,
     onSessionChange: chats.resetForSessionChange,
     onAbortActive: chats.abortActive,
   });
 
-  // Keep the bridged `user` value used by useChats in sync with auth's user.
   useEffect(() => {
     setUserBridge(auth.user);
   }, [auth.user]);
@@ -60,7 +60,7 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* UI-only state (not worth a hook of their own) */
+  /* UI state */
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -69,7 +69,26 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
   const [modelOpen, setModelOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
+  // "chat" displays the normal AI chat.
+  // "gaming", "gaming-news", etc. display GamingHub.
+  const [activePage, setActivePage] = useState("chat");
+
   const searchInputRef = useRef(null);
+
+  const handleNavigate = useCallback((page) => {
+    setActivePage(page);
+
+    // Close mobile sidebar after navigation.
+    if (typeof window !== "undefined" && window.innerWidth < 760) {
+      setSidebarOpen(false);
+    }
+
+    if (page === "settings") {
+      setSettingsTab("general");
+      setSettingsOpen(true);
+      setActivePage("chat");
+    }
+  }, []);
 
   const copyText = useCallback(
     async (content) => {
@@ -78,7 +97,10 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
         showToast("Copied.");
       } catch (error) {
         console.error("Copy failed:", error);
-        showToast("Unable to copy. Check clipboard permissions.", "error");
+        showToast(
+          "Unable to copy. Check clipboard permissions.",
+          "error"
+        );
       }
     },
     [showToast]
@@ -95,12 +117,16 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
       if (modifier && event.shiftKey && key === "f") {
         event.preventDefault();
         setSidebarOpen(true);
-        window.setTimeout(() => searchInputRef.current?.focus(), 60);
+        window.setTimeout(
+          () => searchInputRef.current?.focus(),
+          60
+        );
         return;
       }
 
       if (modifier && !event.shiftKey && key === "k") {
         event.preventDefault();
+        setActivePage("chat");
         chats.createChat();
         return;
       }
@@ -127,7 +153,10 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
     }
 
     window.addEventListener("keydown", handleKeyboard);
-    return () => window.removeEventListener("keydown", handleKeyboard);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyboard);
+    };
   }, [
     auth.authSubmitting,
     auth.verificationSubmitting,
@@ -143,22 +172,28 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
 
   const logoSrc = logoImage.src;
 
-  // Wrap actions that close the sidebar/profile menu on mobile, matching
-  // the original behavior of createChat/openChat also closing the sidebar.
+  // Keep existing chat creation behavior.
   const createChat = useCallback(async () => {
+    setActivePage("chat");
+
     const id = await chats.createChat();
+
     setSidebarOpen(false);
+
     return id;
   }, [chats]);
 
   const openChat = useCallback(
     (chat) => {
+      setActivePage("chat");
       chats.openChat(chat);
       setSidebarOpen(false);
       setProfileOpen(false);
     },
     [chats]
   );
+
+  const isGamingPage = activePage.startsWith("gaming");
 
   return (
     <main className="app">
@@ -194,6 +229,8 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
         setSettingsOpen={setSettingsOpen}
         setAboutOpen={setAboutOpen}
         logout={auth.logout}
+        activePage={activePage}
+        onNavigate={handleNavigate}
       />
 
       <div className="main-shell">
@@ -213,44 +250,60 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
           cloudChatsLoading={chats.cloudChatsLoading}
         />
 
-        <section className={`hero ${chats.hasMessages ? "chat-active" : ""}`}>
-          {!chats.hasMessages ? (
-            <Hero applySuggestion={chats.applySuggestion} user={auth.user} />
-          ) : (
-            <Messages
-              messages={chats.messages}
-              messagesContainerRef={chats.messagesContainerRef}
-              messagesEndRef={chats.messagesEndRef}
-              handleMessagesScroll={chats.handleMessagesScroll}
-              settings={settings}
-              user={auth.user}
-              copyText={copyText}
-              resendFrom={chats.resendFrom}
-              loading={chats.loading}
-            />
-          )}
-        </section>
+        {isGamingPage ? (
+          <section className="hero gaming-hero">
+            <GamingHub page={activePage} />
+          </section>
+        ) : (
+          <>
+            <section
+              className={`hero ${
+                chats.hasMessages ? "chat-active" : ""
+              }`}
+            >
+              {!chats.hasMessages ? (
+                <Hero
+                  applySuggestion={chats.applySuggestion}
+                  user={auth.user}
+                />
+              ) : (
+                <Messages
+                  messages={chats.messages}
+                  messagesContainerRef={chats.messagesContainerRef}
+                  messagesEndRef={chats.messagesEndRef}
+                  handleMessagesScroll={chats.handleMessagesScroll}
+                  settings={settings}
+                  user={auth.user}
+                  copyText={copyText}
+                  resendFrom={chats.resendFrom}
+                  loading={chats.loading}
+                />
+              )}
+            </section>
 
-        <Composer
-          message={chats.message}
-          setMessage={chats.setMessage}
-          textareaRef={chats.textareaRef}
-          resizeTextarea={chats.resizeTextarea}
-          sendMessage={chats.sendMessage}
-          loading={chats.loading}
-          stopGeneration={chats.stopGeneration}
-          settings={settings}
-          updateSetting={updateSetting}
-          hasMessages={chats.hasMessages}
-          setClearConfirmOpen={setClearConfirmOpen}
-          modelOpen={modelOpen}
-          setModelOpen={setModelOpen}
-          setAboutOpen={setAboutOpen}
-          showToast={showToast}
-        />
+            <Composer
+              message={chats.message}
+              setMessage={chats.setMessage}
+              textareaRef={chats.textareaRef}
+              resizeTextarea={chats.resizeTextarea}
+              sendMessage={chats.sendMessage}
+              loading={chats.loading}
+              stopGeneration={chats.stopGeneration}
+              settings={settings}
+              updateSetting={updateSetting}
+              hasMessages={chats.hasMessages}
+              setClearConfirmOpen={setClearConfirmOpen}
+              modelOpen={modelOpen}
+              setModelOpen={setModelOpen}
+              setAboutOpen={setAboutOpen}
+              showToast={showToast}
+            />
+          </>
+        )}
       </div>
 
       <AuthModal auth={auth} logoSrc={logoSrc} />
+
       <VerificationModal auth={auth} logoSrc={logoSrc} />
 
       <SettingsModal
@@ -273,7 +326,14 @@ function HomeInner({ toasts, showToast, settings, updateSetting }) {
       />
 
       <DeleteAccountModal auth={auth} logoSrc={logoSrc} />
-      <AboutModal aboutOpen={aboutOpen} setAboutOpen={setAboutOpen} logoSrc={logoSrc} user={auth.user} />
+
+      <AboutModal
+        aboutOpen={aboutOpen}
+        setAboutOpen={setAboutOpen}
+        logoSrc={logoSrc}
+        user={auth.user}
+      />
+
       <ClearChatsModal
         clearConfirmOpen={clearConfirmOpen}
         setClearConfirmOpen={setClearConfirmOpen}
