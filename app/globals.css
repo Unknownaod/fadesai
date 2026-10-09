@@ -4090,3 +4090,85 @@ css
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Thinking block — paste at the end of globals.css                    */
+/* The var(--x, fallback) values let it work with your existing tokens */
+/* — rename the first name in each var() to match yours if you like.   */
+/* ------------------------------------------------------------------ */
+
+.thinking-block {
+  margin: 0 0 10px;
+}
+
+.thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, #8b8b93);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.thinking-toggle:hover:not(:disabled) {
+  color: var(--text, #e8e8ec);
+}
+
+.thinking-toggle:disabled {
+  cursor: default;
+}
+
+.thinking-chevron {
+  display: inline-block;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.thinking-block.is-open .thinking-chevron {
+  transform: rotate(90deg);
+}
+
+/* Shimmer while the model is still thinking */
+.thinking-block.is-active .thinking-label {
+  background: linear-gradient(
+    90deg,
+    var(--text-muted, #8b8b93) 0%,
+    var(--text, #e8e8ec) 50%,
+    var(--text-muted, #8b8b93) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-shimmer 1.6s linear infinite;
+}
+
+@keyframes thinking-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.thinking-content {
+  margin: 6px 0 4px 2px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--border, rgba(255, 255, 255, 0.14));
+  color: var(--text-muted, #8b8b93);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-block.is-active .thinking-label {
+    animation: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
