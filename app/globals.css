@@ -4679,3 +4679,128 @@ css
     font-size: 15px;
   }
 }
+
+/* =========================================================
+   SIDEBAR GAMING NAV — paste at the bottom of globals.css
+   Only styles the new gaming links; everything else in the
+   sidebar uses your existing classes.
+========================================================= */
+
+:root {
+  --muted: var(--text-muted); /* gaming CSS uses var(--muted), which wasn't defined */
+}
+
+/* <button> reset so the brand looks like the old <div> */
+.sidebar-brand {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sidebar-new-chat {
+  flex-shrink: 0;
+}
+
+.sidebar-search {
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  flex-shrink: 0;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: 0 12px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.sidebar-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sidebar-nav-item {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.sidebar-nav-item.active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-nav-icon {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 13px;
+  filter: grayscale(1);
+}
+
+.sidebar-nav-toggle {
+  width: 30px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.sidebar-nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.sidebar-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 4px 0 2px 14px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-nav-item.sub {
+  min-height: 32px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sidebar-nav-item.sub:hover,
+.sidebar-nav-item.sub.active {
+  color: var(--text);
+}
+
+/* grayscale the emoji in the chat list to keep the monochrome look */
+.chat-icon,
+.chat-actions button {
+  filter: grayscale(1);
+}
