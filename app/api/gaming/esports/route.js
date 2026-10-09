@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -8,8 +7,25 @@ const PANDASCORE_API = "https://api.pandascore.co";
 const OPENDOTA_API = "https://api.opendota.com/api";
 
 const CACHE_SECONDS = 60;
-const MAX_PER_PAGE = 100;
+const MAX_PER_PAGE = 100; // PandaScore: per_page is 1-100
+const DEFAULT_PER_PAGE = 50; // PandaScore default
 const REQUEST_TIMEOUT_MS = 12000;
+
+/* =========================================================
+   GAMES
+
+   Left side  = the game id your frontend sends (?game=...)
+   Right side = the PandaScore videogame slug used for the
+                `videogame` query parameter.
+
+   PandaScore slugs (from the API's VideogameSlug enum):
+   cod-mw, cs-go, dota-2, fifa, kog, league-of-legends,
+   lol-wild-rift, ow, pubg, r6-siege, rl, starcraft-2,
+   starcraft-brood-war, valorant, ...
+
+   "overwatch" and "r6siege" were NOT valid slugs; they are
+   "ow" and "r6-siege".
+========================================================= */
 
 const GAME_SLUGS = {
   valorant: "valorant",
@@ -17,14 +33,15 @@ const GAME_SLUGS = {
   "league-of-legends": "league-of-legends",
   "dota-2": "dota-2",
   "rocket-league": "rl",
-  "overwatch-2": "overwatch",
-  "rainbow-six-siege": "r6siege",
-  fortnite: "fortnite",
+  "overwatch-2": "ow",
+  "rainbow-six-siege": "r6-siege",
   "call-of-duty": "cod-mw",
-  "apex-legends": "apex",
   pubg: "pubg",
   "mobile-legends": "mlbb",
 };
+
+// Games the frontend may still send, but PandaScore does not cover.
+const UNSUPPORTED_GAMES = new Set(["fortnite", "apex-legends"]);
 
 const GAME_NAMES = {
   valorant: "VALORANT",
@@ -32,11 +49,9 @@ const GAME_NAMES = {
   "league-of-legends": "League of Legends",
   "dota-2": "Dota 2",
   rl: "Rocket League",
-  overwatch: "Overwatch 2",
-  r6siege: "Rainbow Six Siege",
-  fortnite: "Fortnite",
+  ow: "Overwatch 2",
+  "r6-siege": "Rainbow Six Siege",
   "cod-mw": "Call of Duty",
-  apex: "Apex Legends",
   pubg: "PUBG",
   mlbb: "Mobile Legends",
 };
@@ -50,14 +65,27 @@ const ALLOWED_VIEWS = new Set([
   "standings",
 ]);
 
-const ADDITION_TYPES = new Set([
+/* GET /additions -> `type` allowed values */
+const ADDITION_TYPES = [
   "league",
   "match",
   "player",
   "serie",
   "team",
   "tournament",
+];
+
+/* GET /additions -> `sort` allowed values */
+const ADDITION_SORTS = new Set([
+  "id",
+  "-id",
+  "modified_at",
+  "-modified_at",
 ]);
+
+/* GET /additions -> filter[...] and range[...] query objects */
+const PASSTHROUGH_KEY = /^(filter|range)\[[a-z0-9_.]{1,64}\]$/i;
+const MAX_PASSTHROUGH_PARAMS = 10;
 
 function json(data, status = 200) {
   return NextResponse.json(data, {
@@ -96,6 +124,22 @@ function gameIdFromSlug(slug) {
   );
 }
 
+/*
+ * Accepts either the frontend game id ("counter-strike-2") or the
+ * PandaScore slug ("cs-go"). Returns the frontend id, "all", or null.
+ */
+function resolveGame(input) {
+  if (input === "all") return "all";
+
+  if (Object.hasOwn(GAME_SLUGS, input)) return input;
+
+  const byProviderSlug = Object.entries(GAME_SLUGS).find(
+    ([, slug]) => slug === input
+  );
+
+  return byProviderSlug ? byProviderSlug[0] : null;
+}
+
 function normalizeStatus(value) {
   return String(value || "upcoming")
     .toLowerCase()
@@ -118,11 +162,14 @@ function buildPandaScoreUrl(path, params = {}) {
     if (
       value === undefined ||
       value === null ||
-      value === ""
+      value === "" ||
+      (Array.isArray(value) && value.length === 0)
     ) {
       continue;
     }
 
+    // Array parameters (type, videogame, sort) are sent comma-separated,
+    // e.g. /additions?type=tournament,serie,league&videogame=cs-go
     url.searchParams.set(
       key,
       Array.isArray(value) ? value.join(",") : String(value)
@@ -132,15 +179,29 @@ function buildPandaScoreUrl(path, params = {}) {
   return url;
 }
 
+function parseLinkRels(header) {
+  const rels = new Set();
+  if (!header) return rels;
+
+  for (const match of header.matchAll(/rel="?([a-z]+)"?/gi)) {
+    rels.add(match[1].toLowerCase());
+  }
+
+  return rels;
+}
+
 /* =========================================================
    SHARED PANDA SCORE REQUEST
-   Every PandaScore request passes through this function.
 
-   Token is sent in the query string and Authorization header.
-   Never log the complete URL because it contains the token.
+   Authentication: Bearer token in the Authorization header,
+   exactly as shown in the PandaScore API reference. The token
+   is never placed in the URL, so it cannot leak into logs.
+
+   Returns { data, meta } where meta carries pagination and
+   rate-limit information from the response headers.
 ========================================================= */
 
-async function pandaFetch(path, params = {}) {
+async function pandaRequest(path, params = {}) {
   const token = process.env.PANDASCORE_API_TOKEN?.trim();
 
   if (!token) {
@@ -153,10 +214,6 @@ async function pandaFetch(path, params = {}) {
   }
 
   const url = buildPandaScoreUrl(path, params);
-
-  // PandaScore documents token authentication through token=...
-  // Also send the Bearer authorization header.
-  url.searchParams.set("token", token);
 
   let response;
 
@@ -185,12 +242,13 @@ async function pandaFetch(path, params = {}) {
     const body = await response.text().catch(() => "");
     let providerMessage = "";
 
+    // PandaScore error bodies look like: { "error": "..." }
     try {
       const parsed = JSON.parse(body);
 
       providerMessage =
+        (typeof parsed?.error === "string" && parsed.error) ||
         parsed?.message ||
-        parsed?.error ||
         parsed?.errors?.[0]?.detail ||
         "";
     } catch {
@@ -203,34 +261,40 @@ async function pandaFetch(path, params = {}) {
       details: body.slice(0, 500),
     });
 
+    const status = response.status;
+
     const error = new Error(
-      response.status === 401
+      status === 401
         ? "PandaScore rejected the API token."
-        : response.status === 403
+        : status === 403
           ? "PandaScore denied access. Check your subscription and endpoint permissions."
-          : response.status === 429
-            ? "PandaScore rate limit reached."
-            : response.status === 400 || response.status === 422
-              ? `PandaScore rejected the request parameters.${providerMessage ? ` ${providerMessage}` : ""}`
-              : `PandaScore request failed (${response.status}).`
+          : status === 404
+            ? "PandaScore could not find the requested resource."
+            : status === 429
+              ? "PandaScore rate limit reached."
+              : status === 400 || status === 422
+                ? `PandaScore rejected the request parameters.${providerMessage ? ` ${providerMessage}` : ""}`
+                : `PandaScore request failed (${status}).`
     );
 
-    error.providerStatus = response.status;
+    error.providerStatus = status;
 
     error.status =
-      response.status === 400 || response.status === 422
+      status === 400 || status === 422
         ? 400
-        : response.status === 429
-          ? 503
-          : response.status === 401 || response.status === 403
-            ? 502
+        : status === 404
+          ? 404
+          : status === 429
+            ? 503
             : 502;
 
     throw error;
   }
 
+  let data;
+
   try {
-    return await response.json();
+    data = await response.json();
   } catch {
     const error = new Error(
       "PandaScore returned an invalid JSON response."
@@ -239,6 +303,27 @@ async function pandaFetch(path, params = {}) {
     error.status = 502;
     throw error;
   }
+
+  const rels = parseLinkRels(response.headers.get("link"));
+
+  return {
+    data,
+    meta: {
+      rateLimitRemaining: safeNumber(
+        response.headers.get("x-rate-limit-remaining")
+      ),
+      page: safeNumber(response.headers.get("x-page")),
+      perPage: safeNumber(response.headers.get("x-per-page")),
+      total: safeNumber(response.headers.get("x-total")),
+      hasNext: rels.has("next"),
+      hasPrev: rels.has("prev"),
+    },
+  };
+}
+
+async function pandaFetch(path, params = {}) {
+  const { data } = await pandaRequest(path, params);
+  return data;
 }
 
 /* =========================================================
@@ -339,139 +424,268 @@ async function getOpenDotaProMatches() {
 /* =========================================================
    ADDITIONS
    PandaScore GET /additions
+
+   Query parameters (per the API reference):
+     filter[...]   object   filter results
+     range[...]    object   select results within ranges
+     sort          array    id | -id | modified_at | -modified_at
+     page          integer  >= 1, default 1
+     per_page      integer  1-100, default 50
+     type          array    league | match | player | serie |
+                            team | tournament
+     since         date-time  filter out older results
+     videogame     array    videogame id(s) or slug(s)
+
+   Response: array of
+     {
+       change_type: "creation" | "update" | "deletion",
+       id,
+       modified_at,
+       type: "league" | "match" | "player" | "serie" | "team" | "tournament",
+       object: {
+         id, name, slug, url, image_url, modified_at,
+         videogame: { id, name, slug, current_version },
+         series: [...]            (league objects)
+         ...other fields depending on `type`
+       }
+     }
+
+   Note: this endpoint only shows unchanged objects.
 ========================================================= */
 
-function mapAddition(entry, selectedGame) {
+function mapAddition(entry, selectedGame, { includeRaw = false } = {}) {
   const object = entry?.object || {};
   const videogame = object.videogame || {};
   const providerSlug = videogame.slug || null;
 
-  const inferredGame = providerSlug
+  const game = providerSlug
     ? gameIdFromSlug(providerSlug)
     : selectedGame;
 
   const type = entry?.type || "unknown";
+  const changeType = entry?.change_type || "creation";
 
-  const name =
-    object.name ||
+  const title =
     object.full_name ||
+    object.name ||
     object.slug ||
     `${type} #${entry?.id ?? object.id ?? "unknown"}`;
 
-  const relatedNames = [
-    object.league?.name,
-    object.serie?.full_name,
-    object.tournament?.name,
-  ].filter(Boolean);
+  const seriesList = toArray(object.series)
+    .map((serie) => serie?.full_name || serie?.name)
+    .filter(Boolean);
 
-  return {
-    id: `${type}-${entry?.id ?? object.id ?? name}`,
+  // League objects embed their series; other objects reference
+  // their parent league / serie / tournament.
+  const leagueName =
+    object.league?.name || (type === "league" ? object.name : null) || null;
+
+  const seriesName =
+    object.serie?.full_name ||
+    (type === "serie" ? object.full_name || object.name : null) ||
+    null;
+
+  const tournamentName =
+    object.tournament?.name ||
+    (type === "tournament" ? object.name : null) ||
+    null;
+
+  const relatedNames = [
+    leagueName,
+    seriesName,
+    tournamentName,
+    ...seriesList,
+  ].filter((name, index, all) => name && all.indexOf(name) === index);
+
+  const modifiedAt = entry?.modified_at || object.modified_at || null;
+
+  const mapped = {
+    id: `${type}-${entry?.id ?? object.id ?? title}`,
     providerId: safeNumber(entry?.id),
     objectId: safeNumber(object.id),
     type,
-    changeType: entry?.change_type || "creation",
-    title: name,
-    name,
-    description: object.description || object.short_name || null,
-    game: inferredGame,
-    gameSlug: providerSlug || GAME_SLUGS[inferredGame] || null,
+    changeType,
+    title,
+    name: title,
+    description: object.description || null,
+    game,
+    gameSlug: providerSlug || GAME_SLUGS[selectedGame] || null,
     gameName:
       videogame.name ||
-      gameName(providerSlug || GAME_SLUGS[inferredGame]),
+      gameName(providerSlug || GAME_SLUGS[selectedGame]),
     image:
       object.image_url ||
-      object.logo_url ||
       object.league?.image_url ||
       object.serie?.image_url ||
       null,
-    logo: object.image_url || object.logo_url || null,
-    url:
-      object.url ||
-      object.official_url ||
-      (object.slug
-        ? `https://www.pandascore.co/${type === "team" ? "teams" : `${type}s`}/${encodeURIComponent(object.slug)}`
-        : null),
-    modifiedAt: entry?.modified_at || object.modified_at || null,
-    createdAt: object.created_at || entry?.modified_at || null,
-    beginAt: object.begin_at || null,
+    logo: object.image_url || null,
+    // Only the URL PandaScore provides. No guessed links.
+    url: object.url || object.official_url || null,
+    modifiedAt,
+    createdAt: changeType === "creation" ? modifiedAt : null,
+    beginAt: object.begin_at || object.scheduled_at || null,
     endAt: object.end_at || null,
-    status: normalizeStatus(object.status || entry?.change_type),
-    league: object.league?.name || null,
-    series: object.serie?.full_name || null,
-    tournament: object.tournament?.name || null,
+    status: normalizeStatus(object.status || changeType),
+    league: leagueName,
+    series: seriesName,
+    seriesList,
+    tournament: tournamentName,
     relatedNames,
     region: object.location || null,
     acronym: object.acronym || null,
     slug: object.slug || null,
-    raw: object,
   };
+
+  if (includeRaw) {
+    mapped.raw = object;
+  }
+
+  return mapped;
+}
+
+function sortAdditions(items, sortList) {
+  const key = sortList?.[0] || "-modified_at";
+  const descending = key.startsWith("-");
+  const field = key.replace(/^-/, "");
+
+  const value = (item) =>
+    field === "id"
+      ? item.providerId ?? 0
+      : item.modifiedAt
+        ? new Date(item.modifiedAt).getTime()
+        : 0;
+
+  return [...items].sort((a, b) =>
+    descending ? value(b) - value(a) : value(a) - value(b)
+  );
 }
 
 async function getAdditions({
   selectedGame,
   requestedTypes,
   since,
+  sort,
   perPage,
   page,
+  passthrough,
+  includeRaw,
 }) {
-  const games =
-    selectedGame === "all"
-      ? Object.entries(GAME_SLUGS)
-      : [[selectedGame, GAME_SLUGS[selectedGame]]];
+  const games = getSelectedGames(selectedGame);
 
-  const results = await Promise.allSettled(
-    games.map(async ([gameId, providerSlug]) => {
-      const entries = await pandaFetch("/additions", {
-        videogame: providerSlug,
-        type: requestedTypes,
-        sort: "-modified_at",
-        per_page: perPage,
-        page,
-        since,
-      });
+  const baseParams = {
+    // Omit `type` when all six types are requested; it is the default.
+    type:
+      requestedTypes.length === ADDITION_TYPES.length
+        ? undefined
+        : requestedTypes,
+    sort,
+    per_page: perPage,
+    page,
+    since,
+    ...passthrough,
+  };
 
-      return toArray(entries).map((entry) =>
-        mapAddition(entry, gameId)
+  const mapEntries = (entries, gameId) =>
+    toArray(entries).map((entry) =>
+      mapAddition(entry, gameId, { includeRaw })
+    );
+
+  /*
+   * `videogame` accepts several slugs, so a single request covers
+   * every selected game. That keeps pagination (`page`, `per_page`)
+   * and sorting correct across all games instead of per game.
+   */
+  try {
+    const { data, meta } = await pandaRequest("/additions", {
+      ...baseParams,
+      videogame: games.map(([, slug]) => slug),
+    });
+
+    return {
+      data: mapEntries(data, selectedGame),
+      warnings: [],
+      meta,
+    };
+  } catch (error) {
+    const rejected =
+      error.providerStatus === 400 || error.providerStatus === 422;
+
+    // One rejected slug should not break every other game: retry per
+    // game and report the failures as warnings.
+    if (games.length > 1 && rejected) {
+      const results = await Promise.allSettled(
+        games.map(async ([gameId, providerSlug]) => {
+          const { data } = await pandaRequest("/additions", {
+            ...baseParams,
+            videogame: providerSlug,
+          });
+
+          return mapEntries(data, gameId);
+        })
       );
-    })
-  );
 
-  const data = [];
-  const warnings = [];
+      const data = [];
+      const warnings = [];
 
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") {
-      data.push(...result.value);
-    } else {
-      const [gameId] = games[index];
-
-      warnings.push({
-        game: gameId,
-        provider: "PandaScore",
-        message: result.reason?.message || "Request failed.",
-        providerStatus: result.reason?.providerStatus ?? null,
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          data.push(...result.value);
+        } else {
+          warnings.push({
+            game: games[index][0],
+            provider: "PandaScore",
+            message: result.reason?.message || "Request failed.",
+            providerStatus: result.reason?.providerStatus ?? null,
+          });
+        }
       });
-    }
-  });
 
-  return { data, warnings };
+      return {
+        data: sortAdditions(data, sort),
+        warnings,
+        meta: null,
+      };
+    }
+
+    throw error;
+  }
 }
 
 /* =========================================================
    NORMALIZERS
 ========================================================= */
 
+/*
+ * PandaScore matches carry scores in `results: [{ team_id, score }]`,
+ * not on the opponent entries. A match name looks like
+ * "Grand final: Team A vs Team B", so the part before ":" is the round.
+ */
+function roundLabel(match) {
+  const name = String(match.name || "");
+  const prefix = name.includes(":") ? name.split(":")[0].trim() : "";
+
+  return prefix || name || null;
+}
+
 function mapMatch(match, selectedGame) {
   const opponents = toArray(match.opponents);
+  const results = toArray(match.results);
 
   const mapOpponent = (entry) => {
     const opponent = entry?.opponent || {};
+
+    const result =
+      opponent.id != null
+        ? results.find(
+            (item) => String(item?.team_id) === String(opponent.id)
+          )
+        : null;
 
     return {
       id: opponent.id != null ? String(opponent.id) : null,
       name: opponent.name || "TBA",
       logo: opponent.image_url || null,
-      score: safeNumber(entry?.score),
+      score: safeNumber(result?.score ?? entry?.score),
     };
   };
 
@@ -498,7 +712,7 @@ function mapMatch(match, selectedGame) {
     startTime: match.begin_at || match.scheduled_at || null,
     date: match.begin_at || match.scheduled_at || null,
     bestOf: safeNumber(match.number_of_games),
-    round: match.match_type || match.name || null,
+    round: roundLabel(match),
     url: match.official_stream_url || match.original_url || null,
     teams: [
       mapOpponent(opponents[0]),
@@ -506,7 +720,7 @@ function mapMatch(match, selectedGame) {
     ],
     winnerId:
       match.winner_id != null ? String(match.winner_id) : null,
-    results: toArray(match.results),
+    results,
   };
 }
 
@@ -516,7 +730,7 @@ function mapTournament(tournament, selectedGame) {
     source: "PandaScore",
     game: selectedGame,
     gameName:
-      tournament.videogame?.name || gameName(selectedGame),
+      tournament.videogame?.name || gameName(GAME_SLUGS[selectedGame]),
     name: tournament.name || tournament.slug || "Tournament",
     organizer:
       tournament.league?.name ||
@@ -542,7 +756,8 @@ function mapTeam(team, selectedGame) {
     id: String(team.id),
     source: "PandaScore",
     game: selectedGame,
-    gameName: team.videogame?.name || gameName(selectedGame),
+    gameName:
+      team.videogame?.name || gameName(GAME_SLUGS[selectedGame]),
     name: team.name || "Unknown team",
     acronym: team.acronym || null,
     logo: team.image_url || null,
@@ -587,14 +802,13 @@ function buildBrackets(matches, selectedGame) {
         status: match.status || "scheduled",
         url: tournament.official_url || null,
         game: selectedGame,
-        gameName: gameName(selectedGame),
+        gameName: gameName(GAME_SLUGS[selectedGame]),
         rounds: [],
       });
     }
 
     const bracket = tournaments.get(tournamentId);
-    const roundName =
-      match.match_type || match.name || "Matches";
+    const roundName = roundLabel(match) || "Matches";
 
     let round = bracket.rounds.find(
       (item) => item.name === roundName
@@ -620,20 +834,20 @@ function buildBrackets(matches, selectedGame) {
    RESOURCE REQUESTS
 ========================================================= */
 
-async function getMatches(selectedGame, past = false) {
+async function getMatches(providerSlug, past = false) {
   const path = past ? "/matches/past" : "/matches/upcoming";
 
   try {
     return toArray(
       await pandaFetch(path, {
-        "filter[videogame]": selectedGame,
+        "filter[videogame]": providerSlug,
         sort: past ? "-begin_at" : "begin_at",
         per_page: 50,
       })
     );
   } catch (error) {
     // Only use OpenDota for historical professional Dota 2 matches.
-    if (selectedGame === "dota-2" && past) {
+    if (providerSlug === "dota-2" && past) {
       try {
         console.warn(
           "[Esports] Falling back to OpenDota for historical Dota 2 matches."
@@ -652,20 +866,20 @@ async function getMatches(selectedGame, past = false) {
   }
 }
 
-async function getTournaments(selectedGame) {
+async function getTournaments(providerSlug) {
   return toArray(
     await pandaFetch("/tournaments", {
-      "filter[videogame]": selectedGame,
+      "filter[videogame]": providerSlug,
       sort: "-begin_at",
       per_page: 50,
     })
   );
 }
 
-async function getTeams(selectedGame) {
+async function getTeams(providerSlug) {
   return toArray(
     await pandaFetch("/teams", {
-      "filter[videogame]": selectedGame,
+      "filter[videogame]": providerSlug,
       sort: "name",
       per_page: 50,
     })
@@ -683,6 +897,16 @@ function getSelectedGames(requestedGame) {
   return requestedGame === "all"
     ? Object.entries(GAME_SLUGS)
     : [[requestedGame, GAME_SLUGS[requestedGame]]];
+}
+
+function toWarning(gameId, reason, extra = {}) {
+  return {
+    game: gameId,
+    ...extra,
+    provider: "PandaScore",
+    message: reason?.message || "Request failed.",
+    providerStatus: reason?.providerStatus ?? null,
+  };
 }
 
 async function collectByGame(games, fetchGame, mapItems) {
@@ -704,49 +928,48 @@ async function collectByGame(games, fetchGame, mapItems) {
       return;
     }
 
-    const [gameId] = games[index];
-
-    warnings.push({
-      game: gameId,
-      provider: "PandaScore",
-      message: result.reason?.message || "Request failed.",
-      providerStatus: result.reason?.providerStatus ?? null,
-    });
+    warnings.push(toWarning(games[index][0], result.reason));
   });
 
   return { data, warnings };
 }
 
+/* Upcoming + past matches for one game, with per-request warnings. */
+async function fetchGameMatches(gameId, providerSlug) {
+  const matchResults = await Promise.allSettled([
+    getMatches(providerSlug, false),
+    getMatches(providerSlug, true),
+  ]);
+
+  const matches = [];
+  const warnings = [];
+
+  matchResults.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      matches.push(...result.value);
+    } else {
+      warnings.push(
+        toWarning(gameId, result.reason, {
+          view: index === 0 ? "upcoming" : "past",
+        })
+      );
+    }
+  });
+
+  return { matches, warnings };
+}
+
 async function collectMatchesByGame(games) {
   const results = await Promise.allSettled(
     games.map(async ([gameId, providerSlug]) => {
-      const matchResults = await Promise.allSettled([
-        getMatches(providerSlug, false),
-        getMatches(providerSlug, true),
-      ]);
-
-      const matches = [];
-      const failures = [];
-
-      matchResults.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          matches.push(...result.value);
-        } else {
-          failures.push({
-            game: gameId,
-            view: index === 0 ? "upcoming" : "past",
-            provider: "PandaScore",
-            message:
-              result.reason?.message || "Request failed.",
-            providerStatus:
-              result.reason?.providerStatus ?? null,
-          });
-        }
-      });
+      const { matches, warnings } = await fetchGameMatches(
+        gameId,
+        providerSlug
+      );
 
       return {
         matches: matches.map((match) => mapMatch(match, gameId)),
-        warnings: failures,
+        warnings,
       };
     })
   );
@@ -761,14 +984,7 @@ async function collectMatchesByGame(games) {
       return;
     }
 
-    const [gameId] = games[index];
-
-    warnings.push({
-      game: gameId,
-      provider: "PandaScore",
-      message: result.reason?.message || "Request failed.",
-      providerStatus: result.reason?.providerStatus ?? null,
-    });
+    warnings.push(toWarning(games[index][0], result.reason));
   });
 
   data.sort((a, b) => {
@@ -786,6 +1002,140 @@ async function collectMatchesByGame(games) {
   return { data, warnings };
 }
 
+async function collectBracketsByGame(games) {
+  const results = await Promise.allSettled(
+    games.map(async ([gameId, providerSlug]) => {
+      const { matches, warnings } = await fetchGameMatches(
+        gameId,
+        providerSlug
+      );
+
+      return {
+        brackets: buildBrackets(matches, gameId),
+        warnings,
+      };
+    })
+  );
+
+  const data = [];
+  const warnings = [];
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      data.push(...result.value.brackets);
+      warnings.push(...result.value.warnings);
+      return;
+    }
+
+    warnings.push(toWarning(games[index][0], result.reason));
+  });
+
+  return { data, warnings };
+}
+
+/* =========================================================
+   REQUEST PARSING HELPERS
+========================================================= */
+
+/*
+ * Forwards filter[...] and range[...] query parameters to
+ * GET /additions, limited to a safe key format and size.
+ */
+function collectPassthroughParams(searchParams) {
+  const params = {};
+  let count = 0;
+
+  for (const [key, value] of searchParams.entries()) {
+    if (!PASSTHROUGH_KEY.test(key)) continue;
+    if (value.length === 0 || value.length > 200) continue;
+
+    params[key] = value;
+
+    count += 1;
+    if (count >= MAX_PASSTHROUGH_PARAMS) break;
+  }
+
+  return params;
+}
+
+function parseCommaList(value) {
+  return value
+    ? [
+        ...new Set(
+          value
+            .split(",")
+            .map((item) => item.trim().toLowerCase())
+            .filter(Boolean)
+        ),
+      ]
+    : [];
+}
+
+/* =========================================================
+   RESPONSE ENVELOPE
+========================================================= */
+
+function buildEnvelope({
+  requestedGame,
+  view,
+  data,
+  warnings = [],
+  page,
+  perPage,
+  since,
+  types,
+  sort,
+  meta,
+  notice,
+}) {
+  return {
+    provider: "PandaScore",
+    game: requestedGame,
+    view,
+    count: data.length,
+    page,
+    perPage,
+    since: view === "additions" ? since : undefined,
+    types: view === "additions" ? types : undefined,
+    sort: view === "additions" ? sort : undefined,
+    pagination:
+      view === "additions" && meta
+        ? {
+            page: meta.page ?? page,
+            perPage: meta.perPage ?? perPage,
+            total: meta.total,
+            hasNext: meta.hasNext,
+            hasPrev: meta.hasPrev,
+          }
+        : undefined,
+    rateLimitRemaining: meta?.rateLimitRemaining ?? undefined,
+    updatedAt: new Date().toISOString(),
+    partial: warnings.length > 0,
+    warnings,
+
+    // Generic result list.
+    items: data,
+
+    // Properties consumed by the existing frontend.
+    additions: view === "additions" ? data : [],
+    matches: view === "matches" ? data : [],
+    tournaments: view === "tournaments" ? data : [],
+    brackets: view === "brackets" ? data : [],
+    teams: view === "teams" ? data : [],
+    standings: view === "standings" ? data : [],
+
+    notice:
+      notice ||
+      (view === "standings"
+        ? "Standings are not configured for this route yet."
+        : view === "brackets"
+          ? "Brackets are approximate groupings from match data, not official tournament bracket trees."
+          : warnings.length > 0
+            ? "Some data providers or games were unavailable. Check the warnings array for details."
+            : undefined),
+  };
+}
+
 /* =========================================================
    GET ROUTE
 ========================================================= */
@@ -794,7 +1144,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const requestedGame = (
+    const gameInput = (
       searchParams.get("game") || "all"
     ).toLowerCase();
 
@@ -806,7 +1156,7 @@ export async function GET(request) {
       1,
       Math.min(
         10000,
-        safeNumber(searchParams.get("page")) || 1
+        Math.floor(safeNumber(searchParams.get("page")) || 1)
       )
     );
 
@@ -814,7 +1164,9 @@ export async function GET(request) {
       1,
       Math.min(
         MAX_PER_PAGE,
-        safeNumber(searchParams.get("per_page")) || 50
+        Math.floor(
+          safeNumber(searchParams.get("per_page")) || DEFAULT_PER_PAGE
+        )
       )
     );
 
@@ -831,10 +1183,27 @@ export async function GET(request) {
       );
     }
 
-    if (
-      requestedGame !== "all" &&
-      !Object.hasOwn(GAME_SLUGS, requestedGame)
-    ) {
+    // Games the frontend lists but PandaScore does not cover.
+    if (UNSUPPORTED_GAMES.has(gameInput)) {
+      return json(
+        buildEnvelope({
+          requestedGame: gameInput,
+          view,
+          data: [],
+          page,
+          perPage,
+          since,
+          types: [],
+          sort: [],
+          notice:
+            "PandaScore does not provide esports data for this game.",
+        })
+      );
+    }
+
+    const requestedGame = resolveGame(gameInput);
+
+    if (!requestedGame) {
       return json(
         {
           error: "Unsupported game.",
@@ -857,22 +1226,19 @@ export async function GET(request) {
 
     let data = [];
     let warnings = [];
+    let meta = null;
     let requestedTypes = [];
+    let sort = [];
 
     const games = getSelectedGames(requestedGame);
 
     if (view === "additions") {
-      const typesParam = searchParams.get("type");
-
-      requestedTypes = typesParam
-        ? typesParam
-            .split(",")
-            .map((type) => type.trim().toLowerCase())
-            .filter(Boolean)
+      requestedTypes = searchParams.get("type")
+        ? parseCommaList(searchParams.get("type"))
         : [...ADDITION_TYPES];
 
       const invalidTypes = requestedTypes.filter(
-        (type) => !ADDITION_TYPES.has(type)
+        (type) => !ADDITION_TYPES.includes(type)
       );
 
       if (invalidTypes.length) {
@@ -880,7 +1246,7 @@ export async function GET(request) {
           {
             error: "One or more addition types are invalid.",
             invalidTypes,
-            allowedTypes: [...ADDITION_TYPES],
+            allowedTypes: ADDITION_TYPES,
           },
           400
         );
@@ -890,7 +1256,26 @@ export async function GET(request) {
         return json(
           {
             error: "Select at least one addition type.",
-            allowedTypes: [...ADDITION_TYPES],
+            allowedTypes: ADDITION_TYPES,
+          },
+          400
+        );
+      }
+
+      sort = searchParams.get("sort")
+        ? parseCommaList(searchParams.get("sort"))
+        : ["-modified_at"];
+
+      const invalidSorts = sort.filter(
+        (item) => !ADDITION_SORTS.has(item)
+      );
+
+      if (invalidSorts.length || sort.length === 0) {
+        return json(
+          {
+            error: "One or more sort values are invalid.",
+            invalidSorts,
+            allowedSorts: [...ADDITION_SORTS],
           },
           400
         );
@@ -900,12 +1285,16 @@ export async function GET(request) {
         selectedGame: requestedGame,
         requestedTypes,
         since,
+        sort,
         perPage,
         page,
+        passthrough: collectPassthroughParams(searchParams),
+        includeRaw: searchParams.get("raw") === "1",
       });
 
       data = result.data;
       warnings = result.warnings;
+      meta = result.meta;
     }
 
     if (view === "matches") {
@@ -937,61 +1326,14 @@ export async function GET(request) {
     }
 
     if (view === "brackets") {
-      const results = await Promise.allSettled(
-        games.map(async ([gameId, providerSlug]) => {
-          const matchResults = await Promise.allSettled([
-            getMatches(providerSlug, false),
-            getMatches(providerSlug, true),
-          ]);
-
-          const matches = [];
-          const gameWarnings = [];
-
-          matchResults.forEach((result, index) => {
-            if (result.status === "fulfilled") {
-              matches.push(...result.value);
-            } else {
-              gameWarnings.push({
-                game: gameId,
-                view: index === 0 ? "upcoming" : "past",
-                provider: "PandaScore",
-                message:
-                  result.reason?.message || "Request failed.",
-                providerStatus:
-                  result.reason?.providerStatus ?? null,
-              });
-            }
-          });
-
-          return {
-            brackets: buildBrackets(matches, gameId),
-            warnings: gameWarnings,
-          };
-        })
-      );
-
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          data.push(...result.value.brackets);
-          warnings.push(...result.value.warnings);
-        } else {
-          const [gameId] = games[index];
-
-          warnings.push({
-            game: gameId,
-            provider: "PandaScore",
-            message:
-              result.reason?.message || "Request failed.",
-            providerStatus:
-              result.reason?.providerStatus ?? null,
-          });
-        }
-      });
+      const result = await collectBracketsByGame(games);
+      data = result.data;
+      warnings = result.warnings;
     }
 
     if (view === "standings") {
       // Do not fabricate standings. Proper standings require
-      // a competition-specific standings endpoint.
+      // GET /tournaments/{id}/standings for a specific tournament.
       data = [];
     }
 
@@ -1023,39 +1365,20 @@ export async function GET(request) {
       );
     }
 
-    return json({
-      provider: "PandaScore",
-      game: requestedGame,
-      view,
-      count: data.length,
-      page,
-      perPage,
-      since: view === "additions" ? since : undefined,
-      types: view === "additions" ? requestedTypes : undefined,
-      updatedAt: new Date().toISOString(),
-      partial: warnings.length > 0,
-      warnings,
-
-      // Generic result list.
-      items: data,
-
-      // Properties consumed by the existing frontend.
-      additions: view === "additions" ? data : [],
-      matches: view === "matches" ? data : [],
-      tournaments: view === "tournaments" ? data : [],
-      brackets: view === "brackets" ? data : [],
-      teams: view === "teams" ? data : [],
-      standings: view === "standings" ? data : [],
-
-      notice:
-        view === "standings"
-          ? "Standings are not configured for this route yet."
-          : view === "brackets"
-            ? "Brackets are approximate groupings from match data, not official tournament bracket trees."
-            : warnings.length > 0
-              ? "Some data providers or games were unavailable. Check the warnings array for details."
-              : undefined,
-    });
+    return json(
+      buildEnvelope({
+        requestedGame,
+        view,
+        data,
+        warnings,
+        page,
+        perPage,
+        since,
+        types: requestedTypes,
+        sort,
+        meta,
+      })
+    );
   } catch (error) {
     console.error("[api/gaming/esports]", {
       message: error?.message,
