@@ -1,6 +1,7 @@
 "use client";
 
 import { MODEL_NAME } from "../lib/constants";
+import { ThinkingBlock } from "./ThinkingBlock";
 
 export function Composer({
   message,
