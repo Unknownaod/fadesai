@@ -2,7 +2,6 @@
 
 import ReactMarkdown from "react-markdown";
 import { formatTime } from "../lib/format";
-import { ThinkingBlock } from "./ThinkingBlock";
 
 const MARKDOWN_COMPONENTS = {
   a: ({ children, href }) => (
