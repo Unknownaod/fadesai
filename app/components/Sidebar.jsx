@@ -4,67 +4,20 @@ import { useEffect, useState } from "react";
 import { ProBadge } from "./ProBadge";
 
 const GAMING_PAGES = [
-  {
-    id: "gaming",
-    label: "Gaming Hub",
-    icon: "🎮",
-    description: "Your gaming dashboard",
-  },
-  {
-    id: "gaming-news",
-    label: "Gaming News",
-    icon: "📰",
-    description: "Latest stories from gaming sites",
-  },
-  {
-    id: "gaming-releases",
-    label: "New Releases",
-    icon: "🚀",
-    description: "New and upcoming games",
-  },
-  {
-    id: "gaming-esports",
-    label: "Esports",
-    icon: "🏆",
-    description: "Competitive gaming news",
-  },
-  {
-    id: "gaming-updates",
-    label: "Game Updates",
-    icon: "🔄",
-    description: "Patches and announcements",
-  },
-  {
-    id: "gaming-deals",
-    label: "Gaming Deals",
-    icon: "🏷️",
-    description: "Sales and discounts",
-  },
-  {
-    id: "gaming-pc",
-    label: "PC Gaming",
-    icon: "🖥️",
-    description: "PC games and hardware",
-  },
-  {
-    id: "gaming-playstation",
-    label: "PlayStation",
-    icon: "🎯",
-    description: "PlayStation news",
-  },
-  {
-    id: "gaming-xbox",
-    label: "Xbox",
-    icon: "🟩",
-    description: "Xbox news",
-  },
-  {
-    id: "gaming-nintendo",
-    label: "Nintendo",
-    icon: "🍄",
-    description: "Nintendo news",
-  },
+  { id: "gaming", label: "Gaming Hub", icon: "🎮", description: "Your gaming dashboard" },
+  { id: "gaming-news", label: "Gaming News", icon: "📰", description: "Latest stories from gaming sites" },
+  { id: "gaming-releases", label: "New Releases", icon: "🚀", description: "New and upcoming games" },
+  { id: "gaming-esports", label: "Esports", icon: "🏆", description: "Competitive gaming news" },
+  { id: "gaming-updates", label: "Game Updates", icon: "🔄", description: "Patches and announcements" },
+  { id: "gaming-deals", label: "Gaming Deals", icon: "🏷️", description: "Sales and discounts" },
+  { id: "gaming-pc", label: "PC Gaming", icon: "🖥️", description: "PC games and hardware" },
+  { id: "gaming-playstation", label: "PlayStation", icon: "🎯", description: "PlayStation news" },
+  { id: "gaming-xbox", label: "Xbox", icon: "🟩", description: "Xbox news" },
+  { id: "gaming-nintendo", label: "Nintendo", icon: "🍄", description: "Nintendo news" },
 ];
+
+// matches the CSS breakpoint where the sidebar becomes a drawer
+const MOBILE_BREAKPOINT = 900;
 
 export function Sidebar({
   sidebarOpen,
@@ -97,83 +50,67 @@ export function Sidebar({
     activePage.startsWith("gaming")
   );
 
-  // Expand the gaming section when navigating to a gaming page.
   useEffect(() => {
-    if (activePage.startsWith("gaming")) {
-      setGamingExpanded(true);
-    }
+    if (activePage.startsWith("gaming")) setGamingExpanded(true);
   }, [activePage]);
+
+  const closeOnMobile = () => {
+    if (typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT) {
+      setSidebarOpen?.(false);
+    }
+  };
 
   const navigate = (page) => {
     onNavigate?.(page);
-
-    if (typeof window !== "undefined" && window.innerWidth < 760) {
-      setSidebarOpen?.(false);
-    }
+    closeOnMobile();
   };
 
   const renderChat = (chat) => {
     const id = chat.id ?? chat._id;
     const title = chat.title || "New chat";
-    const isActive = id === activeChatId;
+    const isActive = id === activeChatId && activePage === "chat";
     const isEditing = id === editingChatId;
 
     return (
-      <div
-        key={id}
-        className={`sidebar-chat ${isActive ? "active" : ""}`}
-      >
+      <div key={id} className={`chat-item ${isActive ? "active" : ""}`}>
         {isEditing ? (
-          <form
-            className="sidebar-chat-edit"
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveRename?.(id);
+          <input
+            className="chat-rename"
+            autoFocus
+            value={editingTitle ?? title}
+            onChange={(e) => setEditingTitle?.(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveRename?.(id);
+              if (e.key === "Escape") cancelRename?.();
             }}
-          >
-            <input
-              autoFocus
-              value={editingTitle ?? title}
-              onChange={(event) => setEditingTitle?.(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  cancelRename?.();
-                }
-              }}
-              aria-label="Rename chat"
-            />
-
-            <button type="submit" title="Save title" aria-label="Save title">
-              ✓
-            </button>
-          </form>
+            onBlur={() => saveRename?.(id)}
+            aria-label="Rename chat"
+          />
         ) : (
           <>
             <button
               type="button"
-              className="sidebar-chat-open"
-              onClick={() => openChat?.(id)}
+              className="chat-item-main"
               title={title}
+              onClick={() => {
+                navigate("chat");
+                openChat?.(id);
+              }}
             >
-              <span className="sidebar-chat-icon">
-                {chat.favorite ? "⭐" : "💬"}
-              </span>
-
-              <span className="sidebar-chat-title">{title}</span>
-
-              {chat.pinned && <span title="Pinned">📌</span>}
+              <span className="chat-icon">{chat.favorite ? "★" : "💬"}</span>
+              <span className="chat-title">{title}</span>
+              {chat.pinned && <span className="chat-icon" title="Pinned">📌</span>}
             </button>
 
-            <div className="sidebar-chat-actions">
+            <div className="chat-actions">
               <button
                 type="button"
                 title="Rename chat"
                 aria-label={`Rename ${title}`}
                 onClick={() => startRename?.(id, title)}
               >
-                ✏️
+                ✎
               </button>
-
               <button
                 type="button"
                 title={chat.pinned ? "Unpin chat" : "Pin chat"}
@@ -182,25 +119,21 @@ export function Sidebar({
               >
                 📌
               </button>
-
               <button
                 type="button"
                 title={chat.favorite ? "Remove favorite" : "Add favorite"}
-                aria-label={
-                  chat.favorite ? "Remove favorite" : "Add favorite"
-                }
+                aria-label={chat.favorite ? "Remove favorite" : "Add favorite"}
                 onClick={() => toggleFavorite?.(id)}
               >
                 {chat.favorite ? "★" : "☆"}
               </button>
-
               <button
                 type="button"
                 title="Delete chat"
                 aria-label={`Delete ${title}`}
                 onClick={() => deleteChat?.(id)}
               >
-                🗑️
+                ✕
               </button>
             </div>
           </>
@@ -209,204 +142,171 @@ export function Sidebar({
     );
   };
 
+  const hasChats = filteredChats.length > 0;
+
   return (
     <>
       {sidebarOpen && (
         <button
           type="button"
-          className="sidebar-backdrop"
+          className="sidebar-overlay"
           aria-label="Close sidebar"
           onClick={() => setSidebarOpen?.(false)}
         />
       )}
 
-      <aside
-        className={`sidebar ${
-          sidebarOpen ? "sidebar-open" : "sidebar-closed"
-        }`}
-      >
-        <div className="sidebar-header">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        {/* top */}
+        <div className="sidebar-top">
           <button
             type="button"
             className="sidebar-brand"
             onClick={() => navigate("chat")}
             title="Fades AI home"
           >
-            <img
-              src={logoSrc || "/logo.png"}
-              alt=""
-              className="sidebar-logo"
-            />
-
-            <span>Fades AI</span>
-
-            <ProBadge />
+            <span className="brand-mark">
+              <img src={logoSrc || "/logo.png"} alt="" className="brand-mark-img" />
+            </span>
+            <span className="brand-name">
+              Fades AI
+              <ProBadge />
+            </span>
           </button>
 
           <button
             type="button"
             className="sidebar-close"
-            onClick={() => setSidebarOpen?.(!sidebarOpen)}
-            aria-label="Toggle sidebar"
+            onClick={() => setSidebarOpen?.(false)}
+            aria-label="Close sidebar"
           >
-            {sidebarOpen ? "‹" : "›"}
+            ×
           </button>
         </div>
 
-        <div className="sidebar-main-actions">
-          <button
-            type="button"
-            className="sidebar-primary-button"
-            onClick={() => {
-              navigate("chat");
-              createChat?.();
-            }}
-            disabled={loading}
-          >
-            <span>＋</span>
-            <span>New chat</span>
-          </button>
+        {/* new chat */}
+        <button
+          type="button"
+          className="sidebar-new-chat"
+          onClick={() => {
+            navigate("chat");
+            createChat?.();
+          }}
+          disabled={loading}
+        >
+          <span>+</span>
+          <strong>New chat</strong>
+        </button>
 
-          <button
-            type="button"
-            className="sidebar-nav-button"
-            onClick={() => {
-              navigate("chat");
-              searchInputRef?.current?.focus();
-            }}
-          >
-            <span>🔎</span>
-            <span>Search chats</span>
-          </button>
-        </div>
-
-        {/* Gaming navigation */}
-        <div className="sidebar-section">
-          <div className="sidebar-section-heading">
+        {/* gaming nav */}
+        <nav className="sidebar-nav" aria-label="Gaming">
+          <div className="sidebar-nav-row">
             <button
               type="button"
-              className={`sidebar-nav-button ${
-                activePage.startsWith("gaming") ? "selected" : ""
+              className={`sidebar-nav-item ${
+                activePage.startsWith("gaming") ? "active" : ""
               }`}
               onClick={() => navigate("gaming")}
               title="Open Gaming Hub"
             >
-              <span>🎮</span>
+              <span className="sidebar-nav-icon">🎮</span>
               <span>Gaming Hub</span>
             </button>
 
             <button
               type="button"
-              className="sidebar-chevron"
-              onClick={() =>
-                setGamingExpanded((expanded) => !expanded)
-              }
-              aria-label={
-                gamingExpanded
-                  ? "Collapse gaming navigation"
-                  : "Expand gaming navigation"
-              }
+              className="sidebar-nav-toggle"
+              onClick={() => setGamingExpanded((v) => !v)}
               aria-expanded={gamingExpanded}
+              aria-label={
+                gamingExpanded ? "Collapse gaming navigation" : "Expand gaming navigation"
+              }
             >
               {gamingExpanded ? "⌄" : "›"}
             </button>
           </div>
 
           {gamingExpanded && (
-            <div className="sidebar-gaming-links">
-              {GAMING_PAGES.filter((page) => page.id !== "gaming").map(
-                (page) => (
-                  <button
-                    key={page.id}
-                    type="button"
-                    className={`sidebar-nav-button sidebar-gaming-button ${
-                      activePage === page.id ? "selected" : ""
-                    }`}
-                    onClick={() => navigate(page.id)}
-                    title={page.description}
-                  >
-                    <span className="sidebar-nav-icon">{page.icon}</span>
-                    <span>{page.label}</span>
-                  </button>
-                )
-              )}
+            <div className="sidebar-subnav">
+              {GAMING_PAGES.filter((p) => p.id !== "gaming").map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`sidebar-nav-item sub ${
+                    activePage === page.id ? "active" : ""
+                  }`}
+                  onClick={() => navigate(page.id)}
+                  title={page.description}
+                >
+                  <span className="sidebar-nav-icon">{page.icon}</span>
+                  <span>{page.label}</span>
+                </button>
+              ))}
             </div>
           )}
-        </div>
+        </nav>
 
-        <div className="sidebar-search-wrap">
+        {/* search */}
+        <div className="sidebar-search">
+          <span>⌕</span>
           <input
             ref={searchInputRef}
             value={search ?? ""}
-            onChange={(event) => setSearch?.(event.target.value)}
-            placeholder="Search your chats..."
-            className="sidebar-search"
+            onChange={(e) => setSearch?.(e.target.value)}
+            placeholder="Search chats"
             aria-label="Search chats"
           />
-
-          {search && (
-            <button
-              type="button"
-              className="sidebar-search-clear"
-              onClick={() => setSearch?.("")}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
         </div>
 
-        <div className="sidebar-chat-list">
-          {cloudChatsLoading && (
-            <div className="sidebar-empty">Syncing your chats…</div>
-          )}
+        {/* chats */}
+        <div className="chat-list">
+          {cloudChatsLoading && <div className="chat-list-heading">Syncing your chats…</div>}
 
           {!search && pinnedChats.length > 0 && (
-            <section className="sidebar-chat-group">
-              <div className="sidebar-chat-group-title">PINNED</div>
+            <section className="chat-group">
+              <div className="chat-group-title">Pinned</div>
               {pinnedChats.map(renderChat)}
             </section>
           )}
 
-          <section className="sidebar-chat-group">
-            <div className="sidebar-chat-group-title">
-              {search ? "SEARCH RESULTS" : "RECENT CHATS"}
-            </div>
-
-            {filteredChats.length > 0 ? (
-              filteredChats.map(renderChat)
-            ) : (
-              <div className="sidebar-empty">
+          {hasChats ? (
+            <section className="chat-group">
+              <div className="chat-group-title">{search ? "Search results" : "Recent chats"}</div>
+              {filteredChats.map(renderChat)}
+            </section>
+          ) : (
+            <div className="empty-chats">
+              <div className="empty-icon">💬</div>
+              <p>{search ? "No chats match your search" : "No chats yet"}</p>
+              <small>
                 {search
-                  ? "No chats match your search."
+                  ? "Try a different keyword."
                   : "Your conversations will appear here."}
-              </div>
-            )}
-          </section>
+              </small>
+            </div>
+          )}
 
           {!search && otherChats.length > 0 && (
-            <section className="sidebar-chat-group">
-              <div className="sidebar-chat-group-title">OTHER CHATS</div>
+            <section className="chat-group">
+              <div className="chat-group-title">Other chats</div>
               {otherChats.map(renderChat)}
             </section>
           )}
         </div>
 
-        <div className="sidebar-footer">
+        {/* bottom */}
+        <div className="sidebar-bottom">
           <button
             type="button"
-            className={`sidebar-nav-button ${
-              activePage === "settings" ? "selected" : ""
-            }`}
+            className={`sidebar-user ${activePage === "settings" ? "selected" : ""}`}
             onClick={() => navigate("settings")}
           >
-            <span>⚙️</span>
-            <span>Settings</span>
+            <span className="user-avatar">⚙</span>
+            <span className="user-info">
+              <strong>Settings</strong>
+              <span>Fades AI · Gaming and beyond</span>
+            </span>
+            <span className="user-arrow">›</span>
           </button>
-
-          <div className="sidebar-footer-caption">
-            Fades AI · Gaming and beyond
-          </div>
         </div>
       </aside>
     </>
