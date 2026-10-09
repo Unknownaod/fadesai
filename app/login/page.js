@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "./login.css";
 
@@ -29,12 +29,99 @@ import "./login.css";
  *                   claim its own token (no shared cookies needed).
  *
  * Styles live in ./login.css
+ * =========================================================
  */
 
 const AUTH_API = "https://api.fades.lol/auth";
 const LOGO = "/logo.png";
 const CODE_RE = /^[a-f0-9]{32}$/;
 const RESEND_COOLDOWN_S = 60;
+const OTP_LENGTH = 6;
+
+/* ---------------------------------------------------------
+   Background decoration (deterministic so SSR === client)
+   --------------------------------------------------------- */
+
+function seeded(seed) {
+  let state = seed;
+
+  return () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+
+    return state / 4294967296;
+  };
+}
+
+const rand = seeded(11);
+
+const STARS = Array.from({ length: 48 }, () => ({
+  x: (rand() * 100).toFixed(2),
+  y: (rand() * 100).toFixed(2),
+  size: (1 + rand() * 2.2).toFixed(1),
+  delay: (rand() * 6).toFixed(2),
+  duration: (3 + rand() * 5).toFixed(2),
+}));
+
+const SHAPES = [
+  { kind: "ring", x: 7, y: 16, size: 74, delay: 0, duration: 15 },
+  { kind: "square", x: 86, y: 12, size: 54, delay: -3, duration: 18 },
+  { kind: "plus", x: 15, y: 72, size: 40, delay: -6, duration: 16 },
+  { kind: "diamond", x: 90, y: 66, size: 60, delay: -2, duration: 20 },
+  { kind: "ring", x: 78, y: 86, size: 38, delay: -8, duration: 14 },
+  { kind: "square", x: 30, y: 8, size: 34, delay: -5, duration: 17 },
+  { kind: "plus", x: 70, y: 30, size: 28, delay: -9, duration: 19 },
+  { kind: "diamond", x: 4, y: 46, size: 30, delay: -4, duration: 21 },
+  { kind: "ring", x: 54, y: 92, size: 46, delay: -7, duration: 16 },
+];
+
+function Background() {
+  return (
+    <div className="fl-bg" aria-hidden="true">
+      <div className="fl-aurora" />
+      <div className="fl-orb fl-orb-1" />
+      <div className="fl-orb fl-orb-2" />
+      <div className="fl-orb fl-orb-3" />
+      <div className="fl-grid" />
+
+      {STARS.map((star, index) => (
+        <span
+          key={index}
+          className="fl-star"
+          style={{
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            animationDelay: `${star.delay}s`,
+            animationDuration: `${star.duration}s`,
+          }}
+        />
+      ))}
+
+      {SHAPES.map((shape, index) => (
+        <span
+          key={index}
+          className={`fl-shape fl-shape-${shape.kind}`}
+          style={{
+            left: `${shape.x}%`,
+            top: `${shape.y}%`,
+            width: `${shape.size}px`,
+            height: `${shape.size}px`,
+            animationDelay: `${shape.delay}s`,
+            animationDuration: `${shape.duration}s`,
+          }}
+        />
+      ))}
+
+      <div className="fl-spot" />
+      <div className="fl-vignette" />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   Helpers
+   --------------------------------------------------------- */
 
 /* short code shown on both sides so the user can confirm they match */
 function formatUserCode(code) {
@@ -47,6 +134,19 @@ function buildBody(mode, { username, email, password }) {
   return mode === "signup"
     ? { username: username.trim(), email: email.trim(), password }
     : { email: email.trim(), password };
+}
+
+function passwordStrength(password) {
+  if (!password) return { score: 0, label: "" };
+  if (password.length < 8) return { score: 0, label: "Too short" };
+
+  let score = 1;
+
+  if (password.length >= 12) score += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
+
+  return { score, label: ["Too short", "Weak", "Okay", "Good", "Strong"][score] };
 }
 
 async function authFetch(path, options = {}) {
@@ -78,6 +178,127 @@ async function authFetch(path, options = {}) {
   return data;
 }
 
+function Avatar({ user }) {
+  const src = user && typeof user.avatar === "string" ? user.avatar : "";
+  const initial = String(
+    (user && (user.username || user.name || user.email)) || "F"
+  )
+    .charAt(0)
+    .toUpperCase();
+
+  if (/^https:\/\//i.test(src)) {
+    return <img className="fl-avatar" src={src} alt="" width="72" height="72" />;
+  }
+
+  return <div className="fl-avatar fl-avatar-fallback">{initial}</div>;
+}
+
+function CheckIcon() {
+  return (
+    <div className="fl-check">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </div>
+  );
+}
+
+function Spinner() {
+  return <span className="fl-btn-spin" aria-hidden="true" />;
+}
+
+/* Six separate boxes: typing, paste, backspace and arrow keys all work. */
+function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
+  const refs = useRef([]);
+  const digits = Array.from({ length: OTP_LENGTH }, (_, i) => value[i] || "");
+
+  const focusAt = (index) => {
+    const node = refs.current[Math.max(0, Math.min(OTP_LENGTH - 1, index))];
+
+    if (node) node.focus();
+  };
+
+  /* focus the first box on mount and whenever the value is cleared */
+  useEffect(() => {
+    if (value === "" && !disabled) focusAt(0);
+  }, [value, disabled]);
+
+  const apply = (startIndex, raw) => {
+    const clean = raw.replace(/\D/g, "");
+
+    if (!clean) return;
+
+    const next = [...digits];
+
+    for (let k = 0; k < clean.length && startIndex + k < OTP_LENGTH; k += 1) {
+      next[startIndex + k] = clean[k];
+    }
+
+    const joined = next.join("");
+
+    onChange(joined);
+    focusAt(startIndex + clean.length);
+
+    if (joined.length === OTP_LENGTH) onComplete(joined);
+  };
+
+  const onKeyDown = (index, event) => {
+    if (event.key === "Backspace") {
+      event.preventDefault();
+
+      if (digits[index]) {
+        const next = [...digits];
+
+        next[index] = "";
+        onChange(next.join(""));
+      } else if (index > 0) {
+        const next = [...digits];
+
+        next[index - 1] = "";
+        onChange(next.join(""));
+        focusAt(index - 1);
+      }
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusAt(index - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusAt(index + 1);
+    }
+  };
+
+  return (
+    <div className={`fl-otp-row${invalid ? " is-invalid" : ""}`} role="group" aria-label="6-digit code">
+      {digits.map((digit, index) => (
+        <input
+          key={index}
+          ref={(node) => {
+            refs.current[index] = node;
+          }}
+          className={digit ? "filled" : ""}
+          value={digit}
+          inputMode="numeric"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          maxLength={1}
+          disabled={disabled}
+          aria-label={`Digit ${index + 1}`}
+          onChange={(event) => apply(index, event.target.value)}
+          onKeyDown={(event) => onKeyDown(index, event)}
+          onFocus={(event) => event.target.select()}
+          onPaste={(event) => {
+            event.preventDefault();
+            apply(0, event.clipboardData.getData("text"));
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   Page
+   --------------------------------------------------------- */
+
 function LoginForm() {
   const params = useSearchParams();
   const fromBrowser = params.get("from") === "browser";
@@ -91,10 +312,13 @@ function LoginForm() {
   const [step, setStep] = useState("form"); // form | twofa | verify
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [twofaCode, setTwofaCode] = useState("");
+  const [useBackup, setUseBackup] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [capsOn, setCapsOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [shake, setShake] = useState(0);
   const [notice, setNotice] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [user, setUser] = useState(null);
@@ -102,10 +326,25 @@ function LoginForm() {
   const [link, setLink] = useState("idle"); // idle | linking | linked | cancelled
   const [linkError, setLinkError] = useState("");
 
+  const strength = passwordStrength(form.password);
+
   const finish = (account) => {
     setUser(account);
 
     if (!fromBrowser && !code) window.location.assign(next);
+  };
+
+  const showCodeError = (message) => {
+    setError(message);
+    setShake((n) => n + 1);
+  };
+
+  /* soft spotlight that follows the pointer */
+  const onPointerMove = (event) => {
+    const node = event.currentTarget;
+
+    node.style.setProperty("--mx", `${event.clientX}px`);
+    node.style.setProperty("--my", `${event.clientY}px`);
   };
 
   const connectBrowser = async () => {
@@ -163,9 +402,15 @@ function LoginForm() {
   const resetToForm = () => {
     setStep("form");
     setTwofaCode("");
+    setUseBackup(false);
     setVerifyCode("");
     setError("");
     setNotice("");
+  };
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError("");
   };
 
   /* ---------- email verification ---------- */
@@ -195,15 +440,13 @@ function LoginForm() {
     }
   };
 
-  const submitVerify = async (event) => {
-    event.preventDefault();
-
+  const submitVerify = async (value) => {
     if (busy) return;
 
     setError("");
 
-    if (!/^\d{6}$/.test(verifyCode)) {
-      setError("Enter the 6-digit code from your email.");
+    if (!/^\d{6}$/.test(value)) {
+      showCodeError("Enter the 6-digit code from your email.");
 
       return;
     }
@@ -213,12 +456,13 @@ function LoginForm() {
     try {
       const data = await authFetch("/verify-email", {
         method: "POST",
-        body: JSON.stringify({ email: form.email.trim(), code: verifyCode }),
+        body: JSON.stringify({ email: form.email.trim(), code: value }),
       });
 
       finish((data && data.user) || {});
     } catch (verifyError) {
-      setError(
+      setVerifyCode("");
+      showCodeError(
         verifyError.status === undefined
           ? "Can't reach Fades right now. Check your connection and try again."
           : verifyError.message
@@ -291,6 +535,7 @@ function LoginForm() {
 
       if (data && data.requiresTwoFactor && data.error === "TWOFA_REQUIRED") {
         setTwofaCode("");
+        setUseBackup(false);
         setStep("twofa");
       } else if (submitError.status === 403 && data && data.requiresEmailVerification) {
         setVerifyCode("");
@@ -313,17 +558,15 @@ function LoginForm() {
 
   /* ---------- two-step verification ---------- */
 
-  const submitTwofa = async (event) => {
-    event.preventDefault();
-
+  const submitTwofa = async (value) => {
     if (busy) return;
 
     setError("");
 
-    const cleaned = twofaCode.trim();
+    const cleaned = String(value || "").trim();
 
     if (!cleaned) {
-      setError("Enter your 6-digit code or a backup code.");
+      showCodeError("Enter your 6-digit code or a backup code.");
 
       return;
     }
@@ -346,7 +589,8 @@ function LoginForm() {
 
       finish(account || {});
     } catch (twofaError) {
-      setError(
+      setTwofaCode("");
+      showCodeError(
         twofaError.status === undefined
           ? "Can't reach Fades right now. Check your connection and try again."
           : twofaError.message
@@ -362,320 +606,433 @@ function LoginForm() {
     } catch {}
 
     setUser(null);
+    setLink("idle");
+    setLinkError("");
     resetToForm();
     setForm((f) => ({ ...f, password: "" }));
   };
 
   const name = user && (user.username || user.name || user.email || "your account");
 
+  const stepKey = user
+    ? `done-${link}`
+    : step === "form"
+      ? `form-${mode}`
+      : step;
+
   return (
-    <main className="fl-page">
-      <div className="fl-glow fl-glow-1" />
-      <div className="fl-glow fl-glow-2" />
+    <main className="fl-page" onPointerMove={onPointerMove}>
+      <Background />
 
-      <section className="fl-card">
-        <div className="fl-brand">
-          <img src={LOGO} alt="" width="40" height="40" />
-          <strong>Fades</strong>
-        </div>
+      <div className="fl-stack">
+        <section className="fl-card">
+          <div className="fl-brand">
+            <span className="fl-logo">
+              <img src={LOGO} alt="" width="40" height="40" />
+            </span>
 
-        {checking ? (
-          <div className="fl-center">
-            <div className="fl-spinner" />
+            <strong>Fades</strong>
           </div>
-        ) : user && code ? (
-          <div className="fl-done">
-            {link === "linked" ? (
-              <>
-                <div className="fl-check">✓</div>
 
-                <h1>Browser connected</h1>
+          {checking ? (
+            <div className="fl-center">
+              <div className="fl-spinner" />
+            </div>
+          ) : (
+            <div className="fl-step" key={stepKey}>
+              {user && code ? (
+                <div className="fl-done">
+                  {link === "linked" ? (
+                    <>
+                      <CheckIcon />
 
-                <p>
-                  You're signed in. This tab will close on its own — if it
-                  doesn't, you can close it.
-                </p>
-              </>
-            ) : link === "cancelled" ? (
-              <>
-                <h1>Not connected</h1>
+                      <h1>Browser connected</h1>
 
-                <p>Nothing was shared with the browser. You can close this tab.</p>
-              </>
-            ) : (
-              <>
-                <h1>Connect Fades Browser?</h1>
+                      <p>
+                        You're signed in. This tab will close on its own — if it
+                        doesn't, you can close it.
+                      </p>
+                    </>
+                  ) : link === "cancelled" ? (
+                    <>
+                      <h1>Not connected</h1>
 
-                <p>
-                  Signed in as <b>{name}</b>. Only continue if this code
-                  matches the one shown in your browser:
-                </p>
+                      <p>Nothing was shared with the browser. You can close this tab.</p>
+                    </>
+                  ) : (
+                    <>
+                      <Avatar user={user} />
 
-                <div className="fl-code">{formatUserCode(code)}</div>
+                      <h1>Connect Fades Browser?</h1>
 
-                {linkError && (
-                  <div className="fl-error" role="alert">
-                    {linkError}
+                      <p>
+                        Signed in as <b>{name}</b>. Only continue if this code
+                        matches the one shown in your browser:
+                      </p>
+
+                      <div className="fl-code">{formatUserCode(code)}</div>
+
+                      {linkError && (
+                        <div className="fl-error" role="alert">
+                          {linkError}
+                        </div>
+                      )}
+
+                      <div className="fl-actions">
+                        <button
+                          className="fl-primary"
+                          onClick={connectBrowser}
+                          disabled={link === "linking"}
+                        >
+                          {link === "linking" ? (
+                            <>
+                              <Spinner /> Connecting…
+                            </>
+                          ) : (
+                            "Yes, connect"
+                          )}
+                        </button>
+
+                        <button className="fl-ghost" onClick={() => setLink("cancelled")}>
+                          Cancel
+                        </button>
+                      </div>
+
+                      <p className="fl-foot">
+                        Not you?{" "}
+                        <button type="button" onClick={signOut}>
+                          Switch account
+                        </button>
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : user ? (
+                <div className="fl-done">
+                  <Avatar user={user} />
+
+                  <h1>You're signed in</h1>
+
+                  <p>
+                    Signed in as <b>{name}</b>.
+                    {fromBrowser
+                      ? " You can close this tab and head back to Fades Browser — your sync will pick up automatically."
+                      : ""}
+                  </p>
+
+                  <div className="fl-actions">
+                    {!fromBrowser && (
+                      <button className="fl-primary" onClick={() => window.location.assign(next)}>
+                        Continue
+                      </button>
+                    )}
+
+                    <button className="fl-ghost" onClick={signOut}>
+                      Switch account
+                    </button>
                   </div>
-                )}
+                </div>
+              ) : step === "twofa" ? (
+                <>
+                  <div className="fl-badge" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" />
+                      <path d="M9 12l2 2 4-4" />
+                    </svg>
+                  </div>
 
-                <div className="fl-actions">
-                  <button
-                    className="fl-primary"
-                    onClick={connectBrowser}
-                    disabled={link === "linking"}
+                  <h1>Two-step verification</h1>
+
+                  <p className="fl-sub">
+                    {useBackup
+                      ? "Enter one of your backup codes. Each one works only once."
+                      : "Enter the 6-digit code from your authenticator app."}
+                  </p>
+
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitTwofa(twofaCode);
+                    }}
+                    noValidate
                   >
-                    {link === "linking" ? "Connecting…" : "Yes, connect"}
-                  </button>
+                    {useBackup ? (
+                      <label>
+                        <span>Backup code</span>
 
-                  <button className="fl-ghost" onClick={() => setLink("cancelled")}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : user ? (
-          <div className="fl-done">
-            <div className="fl-check">✓</div>
+                        <input
+                          className="fl-mono"
+                          value={twofaCode}
+                          onChange={(event) => setTwofaCode(event.target.value)}
+                          autoCapitalize="off"
+                          autoComplete="off"
+                          spellCheck={false}
+                          maxLength={12}
+                          placeholder="xxxxx-xxxxx"
+                          autoFocus
+                        />
+                      </label>
+                    ) : (
+                      <OtpInput
+                        key={shake}
+                        value={twofaCode}
+                        onChange={setTwofaCode}
+                        onComplete={submitTwofa}
+                        disabled={busy}
+                        invalid={Boolean(error)}
+                      />
+                    )}
 
-            <h1>You're signed in</h1>
+                    {error && (
+                      <div className="fl-error" role="alert">
+                        {error}
+                      </div>
+                    )}
 
-            <p>
-              Signed in as <b>{name}</b>.
-              {fromBrowser
-                ? " You can close this tab and head back to Fades Browser — your sync will pick up automatically."
-                : ""}
-            </p>
+                    {useBackup && (
+                      <button className="fl-primary" type="submit" disabled={busy}>
+                        {busy ? (
+                          <>
+                            <Spinner /> Checking…
+                          </>
+                        ) : (
+                          "Verify and sign in"
+                        )}
+                      </button>
+                    )}
+                  </form>
 
-            <div className="fl-actions">
-              {!fromBrowser && (
-                <button className="fl-primary" onClick={() => window.location.assign(next)}>
-                  Continue
-                </button>
-              )}
+                  <p className="fl-foot">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseBackup((v) => !v);
+                        setTwofaCode("");
+                        setError("");
+                      }}
+                    >
+                      {useBackup ? "Use authenticator app instead" : "Use a backup code instead"}
+                    </button>
+                  </p>
 
-              <button className="fl-ghost" onClick={signOut}>
-                Sign out
-              </button>
-            </div>
-          </div>
-        ) : step === "twofa" ? (
-          <>
-            <h1>Two-step verification</h1>
+                  <p className="fl-foot fl-foot-tight">
+                    <button type="button" onClick={resetToForm}>
+                      ← Back to sign in
+                    </button>
+                  </p>
+                </>
+              ) : step === "verify" ? (
+                <>
+                  <div className="fl-badge" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <rect x="3" y="5" width="18" height="14" rx="3" />
+                      <path d="M4 7.5l8 5.5 8-5.5" />
+                    </svg>
+                  </div>
 
-            <p className="fl-sub">
-              Enter the 6-digit code from your authenticator app, or one of
-              your backup codes.
-            </p>
+                  <h1>Verify your email</h1>
 
-            <form onSubmit={submitTwofa} noValidate>
-              <label>
-                <span>Authentication code</span>
+                  <p className="fl-sub">
+                    Enter the 6-digit code we emailed to <b>{form.email.trim()}</b>.
+                    It expires in 10 minutes.
+                  </p>
 
-                <input
-                  className="fl-otp"
-                  value={twofaCode}
-                  onChange={(event) => setTwofaCode(event.target.value)}
-                  autoComplete="one-time-code"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  maxLength={12}
-                  placeholder="123456"
-                  autoFocus
-                />
-              </label>
-
-              {error && (
-                <div className="fl-error" role="alert">
-                  {error}
-                </div>
-              )}
-
-              <button className="fl-primary" type="submit" disabled={busy}>
-                {busy ? "Checking…" : "Verify and sign in"}
-              </button>
-            </form>
-
-            <p className="fl-foot">
-              <button type="button" onClick={resetToForm}>
-                ← Back to sign in
-              </button>
-            </p>
-          </>
-        ) : step === "verify" ? (
-          <>
-            <h1>Verify your email</h1>
-
-            <p className="fl-sub">
-              Enter the 6-digit code we emailed to <b>{form.email.trim()}</b>.
-              It expires in 10 minutes.
-            </p>
-
-            <form onSubmit={submitVerify} noValidate>
-              <label>
-                <span>Verification code</span>
-
-                <input
-                  className="fl-otp"
-                  value={verifyCode}
-                  onChange={(event) =>
-                    setVerifyCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  placeholder="123456"
-                  autoFocus
-                />
-              </label>
-
-              {notice && <div className="fl-notice">{notice}</div>}
-
-              {error && (
-                <div className="fl-error" role="alert">
-                  {error}
-                </div>
-              )}
-
-              <button className="fl-primary" type="submit" disabled={busy}>
-                {busy ? "Verifying…" : "Verify email"}
-              </button>
-            </form>
-
-            <p className="fl-foot">
-              Didn't get it?{" "}
-              <button
-                type="button"
-                onClick={() => sendCode(form.email)}
-                disabled={cooldown > 0}
-              >
-                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
-              </button>
-            </p>
-
-            <p className="fl-foot fl-foot-tight">
-              <button type="button" onClick={resetToForm}>
-                ← Back to sign in
-              </button>
-            </p>
-          </>
-        ) : (
-          <>
-            <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
-
-            <p className="fl-sub">
-              {mode === "login"
-                ? "Sign in to sync your bookmarks, history and tabs."
-                : "One account for Fades Browser, Chat and Mail."}
-            </p>
-
-            <div className="fl-tabs" role="tablist">
-              <button
-                role="tab"
-                aria-selected={mode === "login"}
-                className={mode === "login" ? "active" : ""}
-                onClick={() => {
-                  setMode("login");
-                  setError("");
-                }}
-              >
-                Sign in
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={mode === "signup"}
-                className={mode === "signup" ? "active" : ""}
-                onClick={() => {
-                  setMode("signup");
-                  setError("");
-                }}
-              >
-                Create account
-              </button>
-            </div>
-
-            <form onSubmit={submit} noValidate>
-              {mode === "signup" && (
-                <label>
-                  <span>Username</span>
-
-                  <input
-                    value={form.username}
-                    onChange={set("username")}
-                    autoComplete="username"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    placeholder="yourname"
-                  />
-                </label>
-              )}
-
-              <label>
-                <span>Email</span>
-
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={set("email")}
-                  autoComplete="email"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  placeholder="you@example.com"
-                  autoFocus
-                />
-              </label>
-
-              <label>
-                <span>Password</span>
-
-                <div className="fl-password">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={form.password}
-                    onChange={set("password")}
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitVerify(verifyCode);
+                    }}
+                    noValidate
                   >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </label>
+                    <OtpInput
+                      key={shake}
+                      value={verifyCode}
+                      onChange={setVerifyCode}
+                      onComplete={submitVerify}
+                      disabled={busy}
+                      invalid={Boolean(error)}
+                    />
 
-              {error && (
-                <div className="fl-error" role="alert">
-                  {error}
-                </div>
+                    {notice && <div className="fl-notice">{notice}</div>}
+
+                    {error && (
+                      <div className="fl-error" role="alert">
+                        {error}
+                      </div>
+                    )}
+
+                    <button className="fl-primary" type="submit" disabled={busy}>
+                      {busy ? (
+                        <>
+                          <Spinner /> Verifying…
+                        </>
+                      ) : (
+                        "Verify email"
+                      )}
+                    </button>
+                  </form>
+
+                  <p className="fl-foot">
+                    Didn't get it?{" "}
+                    <button
+                      type="button"
+                      onClick={() => sendCode(form.email)}
+                      disabled={cooldown > 0}
+                    >
+                      {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                    </button>
+                  </p>
+
+                  <p className="fl-foot fl-foot-tight">
+                    <button type="button" onClick={resetToForm}>
+                      ← Back to sign in
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+
+                  <p className="fl-sub">
+                    {mode === "login"
+                      ? "Sign in to sync your bookmarks, history and tabs."
+                      : "One account for Fades Browser, Chat and Mail."}
+                  </p>
+
+                  <div className="fl-tabs" role="tablist" data-mode={mode}>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === "login"}
+                      className={mode === "login" ? "active" : ""}
+                      onClick={() => switchMode("login")}
+                    >
+                      Sign in
+                    </button>
+
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === "signup"}
+                      className={mode === "signup" ? "active" : ""}
+                      onClick={() => switchMode("signup")}
+                    >
+                      Create account
+                    </button>
+                  </div>
+
+                  <form onSubmit={submit} noValidate>
+                    {mode === "signup" && (
+                      <label>
+                        <span>Username</span>
+
+                        <input
+                          value={form.username}
+                          onChange={set("username")}
+                          autoComplete="username"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          placeholder="yourname"
+                        />
+                      </label>
+                    )}
+
+                    <label>
+                      <span>Email</span>
+
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={set("email")}
+                        autoComplete="email"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        placeholder="you@example.com"
+                        autoFocus
+                      />
+                    </label>
+
+                    <label>
+                      <span>Password</span>
+
+                      <div className="fl-password">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={form.password}
+                          onChange={set("password")}
+                          onKeyUp={(event) => setCapsOn(event.getModifierState("CapsLock"))}
+                          onKeyDown={(event) => setCapsOn(event.getModifierState("CapsLock"))}
+                          onBlur={() => setCapsOn(false)}
+                          autoComplete={mode === "login" ? "current-password" : "new-password"}
+                          placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
+
+                      {capsOn && <em className="fl-hint">Caps Lock is on</em>}
+                    </label>
+
+                    {mode === "signup" && form.password && (
+                      <div className="fl-strength" data-score={strength.score}>
+                        <div className="fl-strength-bars">
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </div>
+
+                        <span>{strength.label}</span>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="fl-error" role="alert">
+                        {error}
+                      </div>
+                    )}
+
+                    <button className="fl-primary" type="submit" disabled={busy}>
+                      {busy ? (
+                        <>
+                          <Spinner /> Please wait…
+                        </>
+                      ) : mode === "login" ? (
+                        "Sign in"
+                      ) : (
+                        "Create account"
+                      )}
+                    </button>
+                  </form>
+
+                  <p className="fl-foot">
+                    {mode === "login" ? "New to Fades? " : "Already have an account? "}
+
+                    <button
+                      type="button"
+                      onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+                    >
+                      {mode === "login" ? "Create an account" : "Sign in"}
+                    </button>
+                  </p>
+                </>
               )}
+            </div>
+          )}
+        </section>
 
-              <button className="fl-primary" type="submit" disabled={busy}>
-                {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-              </button>
-            </form>
-
-            <p className="fl-foot">
-              {mode === "login" ? "New to Fades? " : "Already have an account? "}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === "login" ? "signup" : "login");
-                  setError("");
-                }}
-              >
-                {mode === "login" ? "Create an account" : "Sign in"}
-              </button>
-            </p>
-          </>
-        )}
-      </section>
+        <div className="fl-chips" aria-hidden="true">
+          <span>Fades Browser</span>
+          <span>Fades Chat</span>
+          <span>Fades Mail</span>
+        </div>
+      </div>
     </main>
   );
 }
