@@ -5,6 +5,39 @@ import { API_URL, MAX_TEXTAREA_HEIGHT } from "../lib/constants";
 import { createId, generateTitle, normalizeChat, normalizeMessage } from "../lib/chat-helpers";
 import { downloadFile, formatDate } from "../lib/format";
 
+/* ------------------------------------------------------------------ */
+/* Thinking helpers                                                    */
+/* ------------------------------------------------------------------ */
+
+// Safety net: if reasoning ever arrives inside the normal text stream
+// (an old worker, or a proxy that merges events), split it out here so
+// it can never show up as part of the answer.
+function splitInlineThinking(raw) {
+  const lower = raw.toLowerCase();
+
+  const close = lower.lastIndexOf("</think>");
+  if (close !== -1) {
+    return {
+      thought: raw.slice(0, close).replace(/<think>/gi, "").trim(),
+      answer: raw.slice(close + "</think>".length).replace(/^\s+/, ""),
+    };
+  }
+
+  const open = lower.indexOf("<think>");
+  if (open !== -1) {
+    return {
+      thought: raw.slice(open + "<think>".length).trim(),
+      answer: raw.slice(0, open),
+    };
+  }
+
+  return { thought: "", answer: raw };
+}
+
+function secondsSince(startedAt) {
+  return Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+}
+
 export function useChats({ user, showToast }) {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -365,6 +398,11 @@ export function useChats({ user, showToast }) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // Thinking state (declared here so the catch block can use it too)
+      let fullThinking = "";
+      let thinkingStartedAt = null;
+      let thinkingSeconds = null;
+
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -430,13 +468,42 @@ export function useChats({ user, showToast }) {
                 break;
               }
 
+              // Queue / status events carry no text: ignore them.
+              const thinkingDelta = typeof data.thinking === "string" ? data.thinking : "";
               const chunk = data.content ?? data.text ?? data.delta ?? data.message?.content ?? "";
-              if (!chunk) continue;
 
-              fullResponse += chunk;
+              if (!thinkingDelta && !chunk) continue;
+
+              if (thinkingDelta) fullThinking += thinkingDelta;
+              if (chunk) fullResponse += chunk;
+
+              // Split any reasoning that arrived inside the text stream.
+              const parsed = splitInlineThinking(fullResponse);
+
+              const combinedThinking = [fullThinking.trim(), parsed.thought]
+                .filter(Boolean)
+                .join("\n\n");
+
+              if (combinedThinking && !thinkingStartedAt) {
+                thinkingStartedAt = Date.now();
+              }
+
+              // The answer has started: thinking is over, lock in the time.
+              if (parsed.answer.trim() && thinkingStartedAt && thinkingSeconds === null) {
+                thinkingSeconds = secondsSince(thinkingStartedAt);
+              }
 
               setMessages((current) =>
-                current.map((item) => (item.id === assistantId ? { ...item, content: fullResponse } : item))
+                current.map((item) =>
+                  item.id === assistantId
+                    ? {
+                        ...item,
+                        content: parsed.answer,
+                        thinking: combinedThinking || undefined,
+                        thinkingSeconds: thinkingSeconds ?? undefined,
+                      }
+                    : item
+                )
               );
             }
 
@@ -449,12 +516,27 @@ export function useChats({ user, showToast }) {
           }
         }
 
+        const finalParsed = splitInlineThinking(fullResponse);
+
+        const finalThinking = [fullThinking.trim(), finalParsed.thought]
+          .filter(Boolean)
+          .join("\n\n");
+
+        if (finalThinking && !thinkingStartedAt) thinkingStartedAt = Date.now();
+
+        const finalSeconds =
+          thinkingSeconds ?? (thinkingStartedAt && finalThinking ? secondsSince(thinkingStartedAt) : undefined);
+
         const finalMessages = [
           ...updatedMessages,
           {
             id: assistantId,
             role: "assistant",
-            content: fullResponse || "I wasn't able to generate a response.",
+            content: finalParsed.answer.trim()
+              ? finalParsed.answer
+              : "I wasn't able to generate a response.",
+            thinking: finalThinking || undefined,
+            thinkingSeconds: finalSeconds,
             createdAt: Date.now(),
           },
         ];
@@ -473,7 +555,15 @@ export function useChats({ user, showToast }) {
         if (error?.name === "AbortError") {
           const stoppedMessages = [
             ...updatedMessages,
-            { id: assistantId, role: "assistant", content: "Generation stopped.", stopped: true, createdAt: Date.now() },
+            {
+              id: assistantId,
+              role: "assistant",
+              content: "Generation stopped.",
+              stopped: true,
+              thinking: fullThinking.trim() || undefined,
+              thinkingSeconds: thinkingStartedAt ? secondsSince(thinkingStartedAt) : undefined,
+              createdAt: Date.now(),
+            },
           ];
 
           commitMessages(currentChatId, stoppedMessages);
