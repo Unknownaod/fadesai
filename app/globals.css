@@ -4303,14 +4303,28 @@ css
   filter: grayscale(1);
 }
 
-/* ---------- gaming hub (matches GamingHub.jsx) ---------- */
+/* =========================================================
+   GAMING HUB
+========================================================= */
 
+/* wrapper in page.js: fills the area under the topbar, no centering */
+.gaming-hero {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* this is the element that actually scrolls */
 .gaming-hub {
   flex: 1;
-  min-height: 0;
-  width: 100%;
+  min-width: 0;
+  height: 100%;
   overflow-y: auto;
-  padding: 28px;
+  padding: 28px 28px 48px;
   color: var(--text);
   box-sizing: border-box;
   scrollbar-width: thin;
@@ -4330,9 +4344,12 @@ css
 }
 
 .gaming-hub p {
+  margin: 0;
   color: var(--text-muted);
   line-height: 1.6;
 }
+
+/* ---------- header ---------- */
 
 .gaming-hub-header {
   display: flex;
@@ -4342,23 +4359,19 @@ css
   margin-bottom: 24px;
 }
 
-.gaming-hub-header > div:first-child {
+.gaming-hub-heading {
   min-width: 0;
 }
 
-.gaming-eyebrow {
-  margin-bottom: 8px;
-  color: var(--text-muted);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.gaming-hub-actions {
+  flex-shrink: 0;
 }
 
 .gaming-hub h1 {
   margin: 0 0 8px;
   font-size: clamp(25px, 3vw, 34px);
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.04em;
   background: linear-gradient(180deg, #ffffff 0%, #d6d6da 55%, #8f8f96 100%);
   -webkit-background-clip: text;
@@ -4366,13 +4379,14 @@ css
   color: transparent;
 }
 
-.gaming-hub-header p {
-  margin: 0;
+.gaming-hub-heading p {
   font-size: 14px;
 }
 
+/* ---------- buttons ---------- */
+
 .gaming-refresh,
-.gaming-search button,
+.gaming-search-button,
 .gaming-error button {
   min-height: 38px;
   padding: 0 14px;
@@ -4384,18 +4398,20 @@ css
   font-weight: 600;
   white-space: nowrap;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, transform 0.15s ease;
 }
 
 .gaming-refresh:hover:not(:disabled),
-.gaming-search button:hover,
+.gaming-search-button:hover,
 .gaming-error button:hover {
   background: linear-gradient(180deg, #242427, #141416);
   border-color: rgba(255, 255, 255, 0.28);
   color: var(--text);
 }
 
-.gaming-refresh:active:not(:disabled) {
+.gaming-refresh:active:not(:disabled),
+.gaming-search-button:active {
   transform: scale(0.97);
 }
 
@@ -4404,11 +4420,13 @@ css
   cursor: not-allowed;
 }
 
+/* ---------- search ---------- */
+
 .gaming-search {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 22px;
   padding: 0 8px 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 13px;
@@ -4419,14 +4437,8 @@ css
 
 .gaming-search:focus-within {
   border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 255, 255, 0.04);
-}
-
-.gaming-search > span {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    0 0 0 3px rgba(255, 255, 255, 0.04);
 }
 
 .gaming-search input {
@@ -4446,26 +4458,13 @@ css
   color: var(--text-muted);
 }
 
-.gaming-search button {
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 11.5px;
+.gaming-search .gaming-search-button {
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
 }
 
-.gaming-feed-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 16px;
-  margin-bottom: 20px;
-  color: var(--text-dim);
-  font-size: 11.5px;
-}
-
-.gaming-feed-status span:first-child {
-  color: var(--text-secondary);
-  font-weight: 600;
-}
+/* ---------- error / loading / empty ---------- */
 
 .gaming-error,
 .gaming-loading,
@@ -4474,7 +4473,7 @@ css
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   min-height: 190px;
   margin-bottom: 20px;
   padding: 30px;
@@ -4488,35 +4487,37 @@ css
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-.gaming-error strong {
+.gaming-error h2,
+.gaming-empty h2 {
+  margin: 0;
   color: #ffffff;
-  font-size: 15px;
+  font-size: 17px;
+  font-weight: 650;
 }
 
 .gaming-error p,
 .gaming-loading p,
 .gaming-empty p {
   max-width: 440px;
-  margin: 0;
   font-size: 13px;
 }
 
-.gaming-loading h2,
-.gaming-empty h2 {
-  margin: 0;
-  color: #ffffff;
-  font-size: 17px;
+.gaming-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: gaming-spin 0.8s linear infinite;
 }
 
-.gaming-loading-icon,
-.gaming-empty > div:first-child {
-  font-size: 30px;
-  filter: grayscale(1);
+@keyframes gaming-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.gaming-loading-icon {
-  animation: dot-pulse 1.6s ease-in-out infinite;
-}
+/* ---------- article grid ---------- */
 
 .gaming-article-grid {
   display: grid;
@@ -4532,31 +4533,53 @@ css
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012) 55%), #101012;
+  background: linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.012) 55%
+    ),
+    #101012;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease, transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .gaming-article:hover {
   transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 12px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
+/* image area: placeholder sits behind, image covers it */
 .gaming-article-image {
-  display: block;
   position: relative;
+  display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
 }
 
+.gaming-article-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  filter: grayscale(1);
+  opacity: 0.35;
+}
+
 .gaming-article-image img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  background: #101012;
   transition: transform 0.25s ease;
 }
 
@@ -4564,18 +4587,9 @@ css
   transform: scale(1.035);
 }
 
-.gaming-article-placeholder {
-  display: grid;
-  place-items: center;
-  font-size: 30px;
-}
+/* ---------- article text ---------- */
 
-.gaming-article-placeholder span {
-  filter: grayscale(1);
-  opacity: 0.5;
-}
-
-.gaming-article-body {
+.gaming-article-content {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -4592,31 +4606,22 @@ css
   font-size: 11px;
 }
 
-.gaming-article-meta span:first-child {
+.gaming-article-source {
   color: var(--text-secondary);
   font-weight: 700;
 }
 
-.gaming-article h2 {
+.gaming-article-content h2 {
   margin: 0 0 10px;
+  color: #ffffff;
   font-size: 16px;
   font-weight: 650;
   line-height: 1.4;
   letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
 }
 
-.gaming-article h2 a {
-  color: #ffffff;
-  text-decoration: none;
-}
-
-.gaming-article h2 a:hover {
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.4);
-  text-underline-offset: 3px;
-}
-
-.gaming-article-body > p {
+.gaming-article-description {
   display: -webkit-box;
   overflow: hidden;
   margin: 0 0 16px;
@@ -4626,7 +4631,7 @@ css
   -webkit-line-clamp: 3;
 }
 
-.gaming-read-more {
+.gaming-article-link {
   width: fit-content;
   margin-top: auto;
   color: var(--text-secondary);
@@ -4635,13 +4640,16 @@ css
   text-decoration: none;
 }
 
-.gaming-read-more:hover {
+.gaming-article-link:hover {
   color: #ffffff;
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.gaming-hub-footer {
-  margin-top: 24px;
+/* ---------- footer ---------- */
+
+.gaming-source-footer {
+  margin-top: 28px;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-dim);
@@ -4649,19 +4657,21 @@ css
   line-height: 1.6;
 }
 
+/* ---------- responsive ---------- */
+
 @media (max-width: 1100px) {
   .gaming-article-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .gaming-hub {
-    padding: 22px;
+    padding: 22px 22px 40px;
   }
 }
 
 @media (max-width: 600px) {
   .gaming-hub {
-    padding: 16px;
+    padding: 16px 16px 32px;
   }
 
   .gaming-hub-header {
@@ -4675,7 +4685,7 @@ css
     gap: 14px;
   }
 
-  .gaming-article h2 {
+  .gaming-article-content h2 {
     font-size: 15px;
   }
 }
