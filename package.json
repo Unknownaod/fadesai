@@ -1,3 +1,4 @@
+
 {
   "name": "fadesai",
   "version": "0.1.0",
@@ -13,7 +14,8 @@
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "rss-parser": "^3.13.0"
   },
   "devDependencies": {
     "babel-plugin-react-compiler": "1.0.0",
