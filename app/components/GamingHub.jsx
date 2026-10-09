@@ -46,21 +46,110 @@ const PAGE_INFO = {
   },
 };
 
+/*
+ * Game logos are loaded from Wikimedia Commons.
+ * If a remote logo is missing or blocked, the game abbreviation
+ * automatically appears instead.
+ */
 const ESPORTS_GAMES = [
-  { id: "all", name: "All Games", short: "ALL", category: "All esports" },
-  { id: "valorant", name: "VALORANT", short: "VAL", category: "FPS" },
-  { id: "counter-strike-2", name: "Counter-Strike 2", short: "CS2", category: "FPS" },
-  { id: "league-of-legends", name: "League of Legends", short: "LOL", category: "MOBA" },
-  { id: "dota-2", name: "Dota 2", short: "DOTA", category: "MOBA" },
-  { id: "rocket-league", name: "Rocket League", short: "RL", category: "Sports" },
-  { id: "overwatch-2", name: "Overwatch 2", short: "OW2", category: "FPS" },
-  { id: "rainbow-six-siege", name: "Rainbow Six Siege", short: "R6", category: "FPS" },
-  { id: "fortnite", name: "Fortnite", short: "FN", category: "Battle Royale" },
-  { id: "call-of-duty", name: "Call of Duty", short: "COD", category: "FPS" },
-  { id: "apex-legends", name: "Apex Legends", short: "APEX", category: "Battle Royale" },
-  { id: "pubg", name: "PUBG", short: "PUBG", category: "Battle Royale" },
-  { id: "mobile-legends", name: "Mobile Legends", short: "MLBB", category: "MOBA" },
-  { id: "rainbow-six-mobile", name: "Mobile Esports", short: "MOB", category: "Mobile" },
+  {
+    id: "all",
+    name: "All Games",
+    short: "ALL",
+    category: "All esports",
+    logo: null,
+  },
+  {
+    id: "valorant",
+    name: "VALORANT",
+    short: "VAL",
+    category: "FPS",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Valorant_logo.svg",
+  },
+  {
+    id: "counter-strike-2",
+    name: "Counter-Strike 2",
+    short: "CS2",
+    category: "FPS",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Counter-Strike_2_logo.svg",
+  },
+  {
+    id: "league-of-legends",
+    name: "League of Legends",
+    short: "LOL",
+    category: "MOBA",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/League_of_Legends_logo.svg",
+  },
+  {
+    id: "dota-2",
+    name: "Dota 2",
+    short: "DOTA",
+    category: "MOBA",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Dota_2_logo.svg",
+  },
+  {
+    id: "rocket-league",
+    name: "Rocket League",
+    short: "RL",
+    category: "Sports",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Rocket_League_logo.svg",
+  },
+  {
+    id: "overwatch-2",
+    name: "Overwatch 2",
+    short: "OW2",
+    category: "FPS",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Overwatch_2_logo.svg",
+  },
+  {
+    id: "rainbow-six-siege",
+    name: "Rainbow Six Siege",
+    short: "R6",
+    category: "FPS",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Tom_Clancy%27s_Rainbow_Six_Siege_logo.svg",
+  },
+  {
+    id: "fortnite",
+    name: "Fortnite",
+    short: "FN",
+    category: "Battle Royale",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Fortnite_logo.svg",
+  },
+  {
+    id: "call-of-duty",
+    name: "Call of Duty",
+    short: "COD",
+    category: "FPS",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Call_of_Duty_logo.svg",
+  },
+  {
+    id: "apex-legends",
+    name: "Apex Legends",
+    short: "APEX",
+    category: "Battle Royale",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Apex_legends_logo.svg",
+  },
+  {
+    id: "pubg",
+    name: "PUBG",
+    short: "PUBG",
+    category: "Battle Royale",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/PUBG_logo.svg",
+  },
+  {
+    id: "mobile-legends",
+    name: "Mobile Legends",
+    short: "MLBB",
+    category: "MOBA",
+    logo: "https://commons.wikimedia.org/wiki/Special:FilePath/Mobile_Legends_Bang_Bang_logo.svg",
+  },
+  {
+    id: "rainbow-six-mobile",
+    name: "Mobile Esports",
+    short: "MOB",
+    category: "Mobile",
+    logo: null,
+  },
 ];
 
 const ESPORTS_VIEWS = [
@@ -78,6 +167,86 @@ const EMPTY_ESPORTS = {
   brackets: [],
   teams: [],
   standings: [],
+};
+
+const GAME_ALIASES = {
+  valorant: ["valorant", "vct"],
+  "counter-strike-2": [
+    "counter-strike",
+    "counter strike",
+    "counter-strike 2",
+    "cs2",
+    "cs:go",
+  ],
+  "league-of-legends": [
+    "league of legends",
+    "lol",
+    "lck",
+    "lcs",
+    "lec",
+    "lpl",
+  ],
+  "dota-2": ["dota 2", "dota"],
+  "rocket-league": ["rocket league"],
+  "overwatch-2": ["overwatch 2", "overwatch", "owcs"],
+  "rainbow-six-siege": [
+    "rainbow six",
+    "rainbow six siege",
+    "r6 siege",
+  ],
+  fortnite: ["fortnite"],
+  "call-of-duty": [
+    "call of duty",
+    "cod esports",
+    "call of duty league",
+  ],
+  "apex-legends": ["apex legends", "algs"],
+  pubg: ["pubg", "pubg esports"],
+  "mobile-legends": ["mobile legends", "mlbb"],
+  "rainbow-six-mobile": ["mobile esports", "rainbow six mobile"],
+};
+
+const VIEW_INFO = {
+  matches: {
+    title: "Matches & Results",
+    description:
+      "Upcoming match schedules, live series, scores, and completed results.",
+    emptyTitle: "No matches available",
+    emptyDescription:
+      "Matches will appear here when the connected esports data provider has information for this game.",
+  },
+  tournaments: {
+    title: "Tournaments",
+    description:
+      "Discover competitions, leagues, prize pools, and event schedules.",
+    emptyTitle: "No tournaments available",
+    emptyDescription:
+      "Tournament listings will appear here when data is available.",
+  },
+  brackets: {
+    title: "Tournament Brackets",
+    description:
+      "Follow tournament rounds, elimination matches, and championship paths.",
+    emptyTitle: "No brackets available",
+    emptyDescription:
+      "Available tournament brackets will appear here when the data source provides bracket information.",
+  },
+  teams: {
+    title: "Teams & Rosters",
+    description:
+      "Explore competitive teams, player lineups, regions, and roster information.",
+    emptyTitle: "No teams available",
+    emptyDescription:
+      "Team profiles and player rosters will appear here when the data source provides them.",
+  },
+  standings: {
+    title: "Standings & Rankings",
+    description:
+      "Track league tables, tournament standings, wins, losses, and points.",
+    emptyTitle: "No standings available",
+    emptyDescription:
+      "League standings will appear here when the connected provider supplies rankings.",
+  },
 };
 
 function formatDate(value) {
@@ -115,9 +284,46 @@ function displayValue(value, fallback = "TBA") {
     : value;
 }
 
-function ExternalLink({ href, children, className = "" }) {
+function normalizeStatus(value) {
+  return String(value || "upcoming")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getTeam(match, index) {
+  const teams = Array.isArray(match.teams) ? match.teams : [];
+  const team = teams[index];
+
+  if (team) return team;
+
+  if (index === 0) {
+    return {
+      name: match.team1 || match.homeTeam || "Team TBA",
+      logo: match.team1Logo || match.homeLogo,
+      score: match.score1 ?? match.homeScore,
+    };
+  }
+
+  return {
+    name: match.team2 || match.awayTeam || "Team TBA",
+    logo: match.team2Logo || match.awayLogo,
+    score: match.score2 ?? match.awayScore,
+  };
+}
+
+function ExternalLink({
+  href,
+  children,
+  className = "",
+  ...props
+}) {
   if (!href) {
-    return <span className={className}>{children}</span>;
+    return (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    );
   }
 
   return (
@@ -126,6 +332,7 @@ function ExternalLink({ href, children, className = "" }) {
       target="_blank"
       rel="noopener noreferrer"
       className={className}
+      {...props}
     >
       {children}
     </a>
@@ -134,8 +341,8 @@ function ExternalLink({ href, children, className = "" }) {
 
 function EmptyState({ title, description }) {
   return (
-    <div className="gaming-empty">
-      <h2>{title}</h2>
+    <div className="esports-empty">
+      <h3>{title}</h3>
       <p>{description}</p>
     </div>
   );
@@ -143,7 +350,7 @@ function EmptyState({ title, description }) {
 
 function SectionHeading({ title, description, count }) {
   return (
-    <div className="esports-section-heading">
+    <div className="esports-content-header">
       <div>
         <h2>{title}</h2>
         {description && <p>{description}</p>}
@@ -156,69 +363,111 @@ function SectionHeading({ title, description, count }) {
   );
 }
 
+function EsportsGameLogo({ game }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [game.logo]);
+
+  return (
+    <span className="esports-game-icon">
+      {game.logo && !failed ? (
+        <img
+          src={game.logo}
+          alt={`${game.name} logo`}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="esports-game-fallback">
+          {game.short}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function TeamLogo({ src, name, className = "esports-team-logo" }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  return (
+    <span className={className}>
+      {src && !failed ? (
+        <img
+          src={src}
+          alt={name ? `${name} logo` : ""}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span>
+          {(name || "?").trim().slice(0, 2).toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function MatchCard({ match }) {
-  const teams = match.teams || [];
-
-  const teamA = teams[0] || {
-    name: match.team1 || match.homeTeam || "Team TBA",
-    score: match.score1 ?? match.homeScore,
-  };
-
-  const teamB = teams[1] || {
-    name: match.team2 || match.awayTeam || "Team TBA",
-    score: match.score2 ?? match.awayScore,
-  };
-
-  const status = match.status || "upcoming";
+  const teamA = getTeam(match, 0);
+  const teamB = getTeam(match, 1);
+  const status = normalizeStatus(match.status);
 
   return (
     <article className="esports-match-card" key={match.id}>
       <div className="esports-match-top">
-        <span className="esports-game-tag">
-          {match.gameName || match.game || "Esports"}
+        <span className="esports-match-league">
+          {displayValue(
+            match.tournament || match.event || match.league,
+            match.gameName || match.game || "Esports"
+          )}
         </span>
 
-        <span className={`esports-match-status status-${String(status).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-          {status}
+        <span
+          className={`esports-status esports-status-${status}`}
+        >
+          {displayValue(match.status, "Upcoming")}
         </span>
       </div>
 
-      <p className="esports-match-event">
-        {displayValue(match.tournament || match.event, "Tournament TBA")}
-      </p>
-
-      <div className="esports-match-team">
-        <div className="esports-team-identity">
-          {teamA.logo && <img src={teamA.logo} alt="" loading="lazy" />}
-          <span>{displayValue(teamA.name)}</span>
+      <div className="esports-match-teams">
+        <div className="esports-match-team">
+          <TeamLogo src={teamA.logo} name={teamA.name} />
+          <span className="esports-match-team-name">
+            {displayValue(teamA.name, "Team TBA")}
+          </span>
         </div>
 
-        <strong>
-          {teamA.score ?? "—"}
-        </strong>
-      </div>
-
-      <div className="esports-match-team">
-        <div className="esports-team-identity">
-          {teamB.logo && <img src={teamB.logo} alt="" loading="lazy" />}
-          <span>{displayValue(teamB.name)}</span>
+        <div className="esports-match-score">
+          <span>{teamA.score ?? "—"}</span>
+          <span className="esports-match-score-separator">:</span>
+          <span>{teamB.score ?? "—"}</span>
         </div>
 
-        <strong>
-          {teamB.score ?? "—"}
-        </strong>
+        <div className="esports-match-team">
+          <TeamLogo src={teamB.logo} name={teamB.name} />
+          <span className="esports-match-team-name">
+            {displayValue(teamB.name, "Team TBA")}
+          </span>
+        </div>
       </div>
 
-      <div className="esports-match-footer">
+      <div className="esports-match-bottom">
         <span>{formatDateTime(match.startTime || match.date)}</span>
-
         {match.bestOf && <span>BO{match.bestOf}</span>}
-
         {match.round && <span>{match.round}</span>}
       </div>
 
       {match.url && (
-        <ExternalLink href={match.url} className="esports-card-link">
+        <ExternalLink
+          href={match.url}
+          className="esports-news-link"
+        >
           View match ↗
         </ExternalLink>
       )}
@@ -227,54 +476,77 @@ function MatchCard({ match }) {
 }
 
 function TournamentCard({ tournament }) {
-  const status = tournament.status || "upcoming";
+  const status = normalizeStatus(tournament.status);
 
   return (
     <article className="esports-tournament-card" key={tournament.id}>
-      {tournament.image && (
-        <img
-          className="esports-tournament-image"
-          src={tournament.image}
-          alt=""
-          loading="lazy"
-        />
-      )}
+      <div className="esports-tournament-image">
+        {tournament.image ? (
+          <img
+            src={tournament.image}
+            alt=""
+            loading="lazy"
+          />
+        ) : (
+          <span className="esports-tournament-image-placeholder">
+            {tournament.gameName || tournament.game || "ESPORTS"}
+          </span>
+        )}
+      </div>
 
       <div className="esports-tournament-content">
-        <div className="esports-match-top">
-          <span className="esports-game-tag">
+        <div className="esports-card-header">
+          <span className="esports-badge">
             {tournament.gameName || tournament.game || "Esports"}
           </span>
 
-          <span className="esports-match-status">
-            {status}
+          <span className={`esports-status esports-status-${status}`}>
+            {displayValue(tournament.status, "Upcoming")}
           </span>
         </div>
 
-        <h3>{displayValue(tournament.name, "Unnamed tournament")}</h3>
+        <h3 className="esports-tournament-name">
+          {displayValue(tournament.name, "Unnamed tournament")}
+        </h3>
 
-        <p>
+        <p className="esports-tournament-description">
           {displayValue(tournament.organizer, "Organizer TBA")}
         </p>
 
-        <div className="esports-tournament-details">
-          <span>
-            <strong>Starts</strong>
-            {formatDate(tournament.startDate)}
-          </span>
+        <div className="esports-tournament-meta">
+          <div>
+            <span className="esports-meta-label">Starts</span>
+            <span className="esports-meta-value">
+              {formatDate(tournament.startDate)}
+            </span>
+          </div>
 
-          <span>
-            <strong>Prize pool</strong>
-            {displayValue(tournament.prizePool, "Not announced")}
-          </span>
+          <div>
+            <span className="esports-meta-label">Prize pool</span>
+            <span className="esports-meta-value">
+              {displayValue(tournament.prizePool, "Not announced")}
+            </span>
+          </div>
 
-          <span>
-            <strong>Teams</strong>
-            {displayValue(tournament.teamCount, "TBA")}
-          </span>
+          <div>
+            <span className="esports-meta-label">Teams</span>
+            <span className="esports-meta-value">
+              {displayValue(tournament.teamCount, "TBA")}
+            </span>
+          </div>
+
+          <div>
+            <span className="esports-meta-label">Format</span>
+            <span className="esports-meta-value">
+              {displayValue(tournament.format, "TBA")}
+            </span>
+          </div>
         </div>
 
-        <ExternalLink href={tournament.url} className="esports-card-link">
+        <ExternalLink
+          href={tournament.url}
+          className="esports-news-link"
+        >
           Tournament details ↗
         </ExternalLink>
       </div>
@@ -287,48 +559,47 @@ function TeamCard({ team }) {
 
   return (
     <article className="esports-team-card" key={team.id}>
-      <div className="esports-team-card-heading">
-        {team.logo ? (
-          <img src={team.logo} alt="" loading="lazy" />
-        ) : (
-          <div className="esports-team-placeholder">
-            {(team.name || "T").slice(0, 1).toUpperCase()}
-          </div>
-        )}
+      <div className="esports-team-card-header">
+        <TeamLogo
+          src={team.logo}
+          name={team.name}
+          className="esports-team-logo"
+        />
 
-        <div>
+        <div className="esports-team-card-info">
           <h3>{displayValue(team.name, "Unknown team")}</h3>
           <p>{displayValue(team.region, "Region TBA")}</p>
         </div>
+
+        {team.rank != null && (
+          <span className="esports-badge">#{team.rank}</span>
+        )}
       </div>
 
       <div className="esports-team-stats">
-        {team.rank != null && (
-          <span>
-            <strong>#{team.rank}</strong>
-            Rank
-          </span>
-        )}
-
-        {team.wins != null && (
-          <span>
-            <strong>{team.wins}</strong>
-            Wins
-          </span>
-        )}
-
-        {team.losses != null && (
-          <span>
-            <strong>{team.losses}</strong>
-            Losses
-          </span>
+        {[
+          ["Wins", team.wins],
+          ["Losses", team.losses],
+          ["Players", players.length || null],
+        ].map(([label, value]) =>
+          value != null ? (
+            <div key={label}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+            </div>
+          ) : null
         )}
       </div>
 
       <div className="esports-roster">
-        <h4>Roster</h4>
+        <div className="esports-card-header">
+          <h4>Roster</h4>
+          <span className="esports-meta-label">
+            {players.length} players
+          </span>
+        </div>
 
-        {players.length > 0 ? (
+        {players.length ? (
           players.map((player, index) => {
             const item =
               typeof player === "string"
@@ -336,9 +607,36 @@ function TeamCard({ team }) {
                 : player;
 
             return (
-              <div className="esports-roster-player" key={item.id || `${item.name}-${index}`}>
-                <span>{displayValue(item.name, "Unknown player")}</span>
-                <span>{displayValue(item.role || item.position, "Player")}</span>
+              <div
+                className="esports-roster-player"
+                key={item.id || `${item.name}-${index}`}
+              >
+                <span className="esports-player-avatar">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    (item.name || "?").slice(0, 1).toUpperCase()
+                  )}
+                </span>
+
+                <span className="esports-player-info">
+                  <span className="esports-player-name">
+                    {displayValue(item.name, "Unknown player")}
+                  </span>
+                  <span className="esports-player-role">
+                    {displayValue(item.role || item.position, "Player")}
+                  </span>
+                </span>
+
+                {item.country && (
+                  <span className="esports-meta-label">
+                    {item.country}
+                  </span>
+                )}
               </div>
             );
           })
@@ -350,7 +648,10 @@ function TeamCard({ team }) {
       </div>
 
       {team.url && (
-        <ExternalLink href={team.url} className="esports-card-link">
+        <ExternalLink
+          href={team.url}
+          className="esports-news-link"
+        >
           View team ↗
         </ExternalLink>
       )}
@@ -363,21 +664,21 @@ function StandingsTable({ standings }) {
     return (
       <EmptyState
         title="No standings available"
-        description="Standings will appear when tournament or league data is connected."
+        description="Standings will appear when league or tournament ranking data is available."
       />
     );
   }
 
   return (
-    <div className="esports-table-wrap">
-      <table className="esports-standings-table">
+    <div className="esports-standings-wrap">
+      <table className="esports-standings">
         <thead>
           <tr>
             <th>#</th>
             <th>Team</th>
             <th>Played</th>
-            <th>W</th>
-            <th>L</th>
+            <th>Wins</th>
+            <th>Losses</th>
             <th>Points</th>
           </tr>
         </thead>
@@ -385,13 +686,25 @@ function StandingsTable({ standings }) {
         <tbody>
           {standings.map((row, index) => (
             <tr key={row.id || row.teamId || row.team || index}>
-              <td>{row.rank ?? index + 1}</td>
+              <td className="esports-rank">
+                {row.rank ?? index + 1}
+              </td>
+
               <td>
-                <div className="esports-standing-team">
-                  {row.logo && <img src={row.logo} alt="" loading="lazy" />}
-                  <span>{displayValue(row.teamName || row.team || row.name)}</span>
+                <div className="esports-standings-team">
+                  <TeamLogo
+                    src={row.logo}
+                    name={row.teamName || row.team || row.name}
+                    className="esports-standings-logo"
+                  />
+                  <span>
+                    {displayValue(
+                      row.teamName || row.team || row.name
+                    )}
+                  </span>
                 </div>
               </td>
+
               <td>{row.played ?? row.matchesPlayed ?? "—"}</td>
               <td>{row.wins ?? "—"}</td>
               <td>{row.losses ?? "—"}</td>
@@ -405,39 +718,56 @@ function StandingsTable({ standings }) {
 }
 
 function BracketMatch({ match }) {
-  const teams = match.teams || [];
+  const first = getTeam(match, 0);
+  const second = getTeam(match, 1);
 
-  const first = teams[0] || {
-    name: match.team1 || match.homeTeam || "TBD",
-    score: match.score1,
-  };
+  const firstWon =
+    match.winnerId != null &&
+    String(match.winnerId) === String(first.id);
 
-  const second = teams[1] || {
-    name: match.team2 || match.awayTeam || "TBD",
-    score: match.score2,
-  };
+  const secondWon =
+    match.winnerId != null &&
+    String(match.winnerId) === String(second.id);
 
   return (
-    <div className="esports-bracket-match" key={match.id}>
-      <div className="esports-bracket-match-top">
-        <span>{displayValue(match.label || match.round, "Match")}</span>
-        <span>{displayValue(match.status, "")}</span>
+    <div className="esports-bracket-match">
+      <div className="esports-card-header">
+        <span className="esports-meta-label">
+          {displayValue(match.label || match.round, "Match")}
+        </span>
+        <span className="esports-meta-label">
+          {displayValue(match.status, "")}
+        </span>
       </div>
 
-      <div className={`esports-bracket-competitor ${match.winnerId && match.winnerId === first.id ? "is-winner" : ""}`}>
-        <span>{displayValue(first.name)}</span>
-        <strong>{first.score ?? "—"}</strong>
-      </div>
-
-      <div className={`esports-bracket-competitor ${match.winnerId && match.winnerId === second.id ? "is-winner" : ""}`}>
-        <span>{displayValue(second.name)}</span>
-        <strong>{second.score ?? "—"}</strong>
-      </div>
+      {[{ team: first, won: firstWon }, { team: second, won: secondWon }].map(
+        ({ team, won }, index) => (
+          <div
+            key={team.id || team.name || index}
+            className={`esports-bracket-team ${
+              won ? "winner" : ""
+            }`}
+            data-winner={won ? "true" : "false"}
+          >
+            <span className="esports-bracket-team-name">
+              {displayValue(team.name, "TBD")}
+            </span>
+            <span className="esports-bracket-score">
+              {team.score ?? "—"}
+            </span>
+          </div>
+        )
+      )}
 
       {match.url && (
-        <ExternalLink href={match.url} className="esports-bracket-link">
-          Match details ↗
-        </ExternalLink>
+        <div className="esports-card-footer">
+          <ExternalLink
+            href={match.url}
+            className="esports-news-link"
+          >
+            Match details ↗
+          </ExternalLink>
+        </div>
       )}
     </div>
   );
@@ -448,7 +778,7 @@ function BracketView({ brackets }) {
     return (
       <EmptyState
         title="No brackets available"
-        description="When bracket data is connected, tournament rounds and matchups will appear here."
+        description="Tournament rounds and matchups will appear here when the provider supplies bracket data."
       />
     );
   }
@@ -459,10 +789,13 @@ function BracketView({ brackets }) {
         const rounds = bracket.rounds || [];
 
         return (
-          <section className="esports-bracket-tournament" key={bracket.id || index}>
-            <div className="esports-bracket-heading">
+          <section
+            className="esports-bracket-tournament"
+            key={bracket.id || index}
+          >
+            <div className="esports-content-header">
               <div>
-                <h3>{displayValue(bracket.name, "Tournament bracket")}</h3>
+                <h2>{displayValue(bracket.name, "Tournament bracket")}</h2>
                 <p>
                   {displayValue(bracket.format, "Tournament")}
                   {" · "}
@@ -471,34 +804,44 @@ function BracketView({ brackets }) {
               </div>
 
               {bracket.url && (
-                <ExternalLink href={bracket.url} className="esports-card-link">
+                <ExternalLink
+                  href={bracket.url}
+                  className="esports-news-link"
+                >
                   Full bracket ↗
                 </ExternalLink>
               )}
             </div>
 
-            {rounds.length > 0 ? (
-              <div className="esports-bracket-rounds">
-                {rounds.map((round, roundIndex) => (
-                  <div
-                    className="esports-bracket-round"
-                    key={round.id || round.name || roundIndex}
-                  >
-                    <h4>{displayValue(round.name, `Round ${roundIndex + 1}`)}</h4>
+            {rounds.length ? (
+              <div className="esports-bracket-container">
+                <div className="esports-bracket">
+                  {rounds.map((round, roundIndex) => (
+                    <div
+                      className="esports-bracket-round"
+                      key={round.id || round.name || roundIndex}
+                    >
+                      <h3 className="esports-bracket-round-title">
+                        {displayValue(
+                          round.name,
+                          `Round ${roundIndex + 1}`
+                        )}
+                      </h3>
 
-                    {(round.matches || []).map((match, matchIndex) => (
-                      <BracketMatch
-                        key={match.id || matchIndex}
-                        match={match}
-                      />
-                    ))}
-                  </div>
-                ))}
+                      {(round.matches || []).map((match, matchIndex) => (
+                        <BracketMatch
+                          key={match.id || matchIndex}
+                          match={match}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <EmptyState
                 title="Rounds not available"
-                description="The tournament has no round data in the current response."
+                description="The current data response does not include rounds for this tournament."
               />
             )}
           </section>
@@ -512,7 +855,6 @@ function EsportsDashboard({
   articles,
   loading,
   error,
-  onRefresh,
   onRetry,
   onSearch,
   search,
@@ -524,52 +866,62 @@ function EsportsDashboard({
   const [esportsData, setEsportsData] = useState(EMPTY_ESPORTS);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const selectedGameInfo =
     ESPORTS_GAMES.find((game) => game.id === selectedGame) ||
     ESPORTS_GAMES[0];
 
-  const loadEsportsData = useCallback(async () => {
-    if (activeView === "news") return;
+  const loadEsportsData = useCallback(
+    async () => {
+      if (activeView === "news") return;
 
-    setDataLoading(true);
-    setDataError("");
+      setDataLoading(true);
+      setDataError("");
 
-    try {
-      const params = new URLSearchParams({
-        game: selectedGame,
-        view: activeView,
-      });
+      try {
+        const params = new URLSearchParams({
+          game: selectedGame,
+          view: activeView,
+        });
 
-      const response = await fetch(
-        `/api/gaming/esports?${params.toString()}`,
-        { cache: "no-store" }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          response.status === 404
-            ? "The esports data endpoint has not been configured yet."
-            : `Esports data request failed (${response.status}).`
+        const response = await fetch(
+          `/api/gaming/esports?${params.toString()}`,
+          { cache: "no-store" }
         );
+
+        if (!response.ok) {
+          throw new Error(
+            response.status === 404
+              ? "The /api/gaming/esports endpoint was not found."
+              : `Esports request failed (${response.status}).`
+          );
+        }
+
+        const data = await response.json();
+
+        setEsportsData({
+          matches: Array.isArray(data.matches) ? data.matches : [],
+          tournaments: Array.isArray(data.tournaments)
+            ? data.tournaments
+            : [],
+          brackets: Array.isArray(data.brackets) ? data.brackets : [],
+          teams: Array.isArray(data.teams) ? data.teams : [],
+          standings: Array.isArray(data.standings)
+            ? data.standings
+            : [],
+        });
+      } catch (err) {
+        setDataError(
+          err.message || "Couldn't load esports data."
+        );
+        setEsportsData(EMPTY_ESPORTS);
+      } finally {
+        setDataLoading(false);
       }
-
-      const data = await response.json();
-
-      setEsportsData({
-        matches: Array.isArray(data.matches) ? data.matches : [],
-        tournaments: Array.isArray(data.tournaments) ? data.tournaments : [],
-        brackets: Array.isArray(data.brackets) ? data.brackets : [],
-        teams: Array.isArray(data.teams) ? data.teams : [],
-        standings: Array.isArray(data.standings) ? data.standings : [],
-      });
-    } catch (err) {
-      setDataError(err.message || "Couldn't load esports data.");
-      setEsportsData(EMPTY_ESPORTS);
-    } finally {
-      setDataLoading(false);
-    }
-  }, [activeView, selectedGame]);
+    },
+    [activeView, selectedGame, refreshKey]
+  );
 
   useEffect(() => {
     loadEsportsData();
@@ -578,23 +930,7 @@ function EsportsDashboard({
   const visibleArticles = useMemo(() => {
     if (selectedGame === "all") return articles;
 
-    const aliases = {
-      valorant: ["valorant", "vct"],
-      "counter-strike-2": ["counter-strike", "counter strike", "cs2", "cs:go"],
-      "league-of-legends": ["league of legends", "lol", "lck", "lcs", "lec", "lpl"],
-      "dota-2": ["dota 2", "dota"],
-      "rocket-league": ["rocket league"],
-      "overwatch-2": ["overwatch 2", "overwatch", "owcs"],
-      "rainbow-six-siege": ["rainbow six", "rainbow six siege", "r6 siege"],
-      fortnite: ["fortnite"],
-      "call-of-duty": ["call of duty", "cod esports", "call of duty league"],
-      "apex-legends": ["apex legends", "algs"],
-      pubg: ["pubg", "pubg esports"],
-      "mobile-legends": ["mobile legends", "mlbb"],
-      "rainbow-six-mobile": ["mobile esports"],
-    };
-
-    const terms = aliases[selectedGame] || [selectedGame];
+    const terms = GAME_ALIASES[selectedGame] || [selectedGame];
 
     return articles.filter((article) => {
       const text = [
@@ -612,90 +948,65 @@ function EsportsDashboard({
   }, [articles, selectedGame]);
 
   const currentItems = esportsData[activeView] || [];
-
-  const viewInfo = {
-    matches: {
-      title: "Matches",
-      description: "Match schedules, results, scores, and series information.",
-      emptyTitle: "No matches available",
-      emptyDescription: "Upcoming matches and completed results will appear here when data is available.",
-    },
-    tournaments: {
-      title: "Tournaments",
-      description: "Discover competitions, prize pools, events, and schedules.",
-      emptyTitle: "No tournaments available",
-      emptyDescription: "Tournament listings will appear here when data is available.",
-    },
-    brackets: {
-      title: "Tournament Brackets",
-      description: "Follow group stages, elimination rounds, and championship paths.",
-      emptyTitle: "No brackets available",
-      emptyDescription: "Available tournament brackets will appear here.",
-    },
-    teams: {
-      title: "Teams & Rosters",
-      description: "Explore competitive teams, regions, players, and roster changes.",
-      emptyTitle: "No teams available",
-      emptyDescription: "Team profiles and player rosters will appear here when data is available.",
-    },
-    standings: {
-      title: "Standings",
-      description: "League tables, tournament placements, and competitive rankings.",
-      emptyTitle: "No standings available",
-      emptyDescription: "Rankings and standings will appear here when data is available.",
-    },
-  };
-
-  const currentViewInfo = viewInfo[activeView];
+  const currentViewInfo = VIEW_INFO[activeView];
 
   return (
     <div className="esports-dashboard">
-      <section className="esports-hero">
-        <div className="esports-hero-copy">
+      <section className="esports-header">
+        <div className="esports-header-content">
           <div className="esports-eyebrow">
-            <span className="esports-live-dot" />
             THE COMPETITIVE SCENE
           </div>
 
-          <h2>
+          <h1 className="esports-title">
             Esports <span>Central.</span>
-          </h2>
+          </h1>
 
-          <p>
-            Follow your games, track tournaments, discover teams,
-            and keep up with the competitive scene.
+          <p className="esports-subtitle">
+            Follow your favorite games, track tournaments, discover
+            teams, explore rosters, and keep up with the competitive scene.
           </p>
 
-          <div className="esports-hero-actions">
+          <div className="esports-header-actions">
             <button
               type="button"
-              className="esports-primary-button"
+              className="esports-button esports-button-primary"
               onClick={() => setActiveView("matches")}
             >
-              Explore matches <span>↗</span>
+              Explore matches ↗
             </button>
 
             <button
               type="button"
-              className="esports-secondary-button"
+              className="esports-button"
               onClick={() => setActiveView("tournaments")}
             >
               View tournaments
             </button>
-          </div>
-        </div>
 
-        <div className="esports-hero-mark" aria-hidden="true">
-          <div className="esports-hero-mark-inner">F</div>
-          <span>FADES ESPORTS</span>
+            <button
+              type="button"
+              className="esports-refresh"
+              onClick={() => {
+                if (activeView === "news") {
+                  onRetry();
+                } else {
+                  setRefreshKey((value) => value + 1);
+                }
+              }}
+              disabled={activeView === "news" ? loading : dataLoading}
+            >
+              ↻ Refresh
+            </button>
+          </div>
         </div>
       </section>
 
-      <section className="esports-games-section">
-        <div className="esports-games-heading">
+      <section className="esports-game-section">
+        <div className="esports-section-heading">
           <div>
             <h2>Choose your game</h2>
-            <p>Browse news and competitive data by title.</p>
+            <p>Browse competitive news and data by title.</p>
           </div>
 
           <span className="esports-count">
@@ -708,13 +1019,13 @@ function EsportsDashboard({
             <button
               type="button"
               key={game.id}
-              className={`esports-game-option ${selectedGame === game.id ? "active" : ""}`}
+              className={`esports-game-option ${
+                selectedGame === game.id ? "active" : ""
+              }`}
               onClick={() => setSelectedGame(game.id)}
               aria-pressed={selectedGame === game.id}
             >
-              <span className="esports-game-abbreviation">
-                {game.short}
-              </span>
+              <EsportsGameLogo game={game} />
 
               <span className="esports-game-option-text">
                 <strong>{game.name}</strong>
@@ -722,21 +1033,25 @@ function EsportsDashboard({
               </span>
 
               {selectedGame === game.id && (
-                <span className="esports-game-check">✓</span>
+                <span className="esports-game-check" aria-hidden="true">
+                  ✓
+                </span>
               )}
             </button>
           ))}
         </div>
       </section>
 
-      <nav className="esports-view-nav" aria-label="Esports sections">
+      <nav className="esports-tabs" aria-label="Esports sections">
         {ESPORTS_VIEWS.map((view) => (
           <button
             type="button"
             key={view.id}
-            className={`esports-view-button ${activeView === view.id ? "active" : ""}`}
+            className={`esports-tab ${
+              activeView === view.id ? "active" : ""
+            }`}
             onClick={() => setActiveView(view.id)}
-            aria-current={activeView === view.id ? "page" : undefined}
+            aria-pressed={activeView === view.id}
           >
             {view.label}
           </button>
@@ -744,7 +1059,7 @@ function EsportsDashboard({
       </nav>
 
       {activeView === "news" ? (
-        <section className="esports-content-section">
+        <section className="esports-content">
           <SectionHeading
             title={
               selectedGame === "all"
@@ -753,39 +1068,41 @@ function EsportsDashboard({
             }
             description={
               selectedGame === "all"
-                ? "The latest stories from across competitive gaming."
+                ? "Stories and reporting from across competitive gaming."
                 : `Competitive news and reporting for ${selectedGameInfo.name}.`
             }
             count={visibleArticles.length}
           />
 
           <form
-            className="gaming-search"
+            className="esports-search"
             onSubmit={(event) => {
               event.preventDefault();
               onSearch(search);
             }}
           >
+            <span aria-hidden="true">⌕</span>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search esports news..."
               aria-label="Search esports news"
             />
-
-            <button type="submit" className="gaming-search-button">
+            <button
+              type="submit"
+              className="esports-button esports-button-primary"
+            >
               Search
             </button>
           </form>
 
           {error && (
-            <div className="gaming-error">
-              <h2>Couldn't load esports news</h2>
+            <div className="esports-error">
+              <h3>Couldn't load esports news</h3>
               <p>{error}</p>
-
               <button
                 type="button"
-                className="gaming-refresh"
+                className="esports-button"
                 onClick={onRetry}
               >
                 Try again
@@ -794,9 +1111,10 @@ function EsportsDashboard({
           )}
 
           {loading && visibleArticles.length === 0 && !error && (
-            <div className="gaming-loading">
-              <div className="gaming-spinner" />
-              <p>Checking esports news feeds…</p>
+            <div className="esports-loading">
+              <div className="esports-spinner" />
+              <h3>Loading esports news</h3>
+              <p>Checking gaming news feeds…</p>
             </div>
           )}
 
@@ -808,31 +1126,35 @@ function EsportsDashboard({
           )}
 
           {visibleArticles.length > 0 && (
-            <div className="gaming-article-grid">
+            <div className="esports-news-grid">
               {visibleArticles.map((article) => (
                 <article
-                  className="gaming-article"
-                  key={article.id || article.url}
+                  className="esports-news-card"
+                  key={article.id || article.url || article.title}
                 >
                   <ExternalLink
                     href={article.url}
-                    className="gaming-article-image"
+                    className="esports-news-image"
+                    aria-label={`Read ${article.title}`}
                   >
-                    {article.image && (
+                    {article.image ? (
                       <img
                         src={article.image}
                         alt=""
                         loading="lazy"
                       />
+                    ) : (
+                      <span className="esports-news-placeholder">
+                        ESPORTS
+                      </span>
                     )}
                   </ExternalLink>
 
-                  <div className="gaming-article-content">
-                    <div className="gaming-article-meta">
-                      <span className="gaming-article-source">
+                  <div className="esports-news-content">
+                    <div className="esports-news-meta">
+                      <span>
                         {article.source || "Esports source"}
                       </span>
-
                       {article.publishedAt && (
                         <time dateTime={article.publishedAt}>
                           {formatDate(article.publishedAt)}
@@ -840,17 +1162,15 @@ function EsportsDashboard({
                       )}
                     </div>
 
-                    <h2>{article.title}</h2>
+                    <h3>{article.title}</h3>
 
                     {article.description && (
-                      <p className="gaming-article-description">
-                        {article.description}
-                      </p>
+                      <p>{article.description}</p>
                     )}
 
                     <ExternalLink
                       href={article.url}
-                      className="gaming-article-link"
+                      className="esports-news-link"
                     >
                       Read original story ↗
                     </ExternalLink>
@@ -861,7 +1181,7 @@ function EsportsDashboard({
           )}
         </section>
       ) : (
-        <section className="esports-content-section">
+        <section className="esports-content">
           <SectionHeading
             title={currentViewInfo.title}
             description={currentViewInfo.description}
@@ -869,25 +1189,27 @@ function EsportsDashboard({
           />
 
           {dataLoading && (
-            <div className="gaming-loading">
-              <div className="gaming-spinner" />
-              <p>Loading {activeView} data…</p>
+            <div className="esports-loading">
+              <div className="esports-spinner" />
+              <h3>Loading {activeView}</h3>
+              <p>
+                Getting {selectedGameInfo.name} competitive data…
+              </p>
             </div>
           )}
 
           {dataError && !dataLoading && (
-            <div className="gaming-error">
-              <h2>Esports data unavailable</h2>
+            <div className="esports-error">
+              <h3>Esports data unavailable</h3>
               <p>{dataError}</p>
               <p>
-                This section needs the structured esports API endpoint.
-                News and the rest of the gaming hub can continue working independently.
+                Check that your esports API route is configured and
+                that its data provider has access to this game and view.
               </p>
-
               <button
                 type="button"
-                className="gaming-refresh"
-                onClick={loadEsportsData}
+                className="esports-button"
+                onClick={() => setRefreshKey((value) => value + 1)}
               >
                 Try again
               </button>
@@ -949,10 +1271,12 @@ function EsportsDashboard({
       )}
 
       <footer className="gaming-source-footer">
-        {lastUpdated && <>News updated {lastUpdated.toLocaleTimeString()} · </>}
+        {lastUpdated && (
+          <>News updated {lastUpdated.toLocaleTimeString()} · </>
+        )}
         {selectedGameInfo.name} · Fades Gaming Esports.
-        Match schedules, scores, rosters, and brackets depend on the
-        availability and freshness of the connected data sources.
+        {" "}Scores, rosters, brackets, and schedules depend on the
+        availability of connected data providers.
       </footer>
     </div>
   );
@@ -991,7 +1315,9 @@ export default function GamingHub({ page = "gaming" }) {
 
         const data = await response.json();
 
-        setArticles(Array.isArray(data.articles) ? data.articles : []);
+        setArticles(
+          Array.isArray(data.articles) ? data.articles : []
+        );
         setLastUpdated(new Date());
       } catch (err) {
         setError(err.message || "Couldn't load gaming news.");
@@ -1018,24 +1344,12 @@ export default function GamingHub({ page = "gaming" }) {
             <h1>{info.title}</h1>
             <p>{info.subtitle}</p>
           </div>
-
-          <div className="gaming-hub-actions">
-            <button
-              type="button"
-              className="gaming-refresh"
-              onClick={() => loadNews(search)}
-              disabled={loading}
-            >
-              {loading ? "Loading…" : "↻ Refresh"}
-            </button>
-          </div>
         </header>
 
         <EsportsDashboard
           articles={articles}
           loading={loading}
           error={error}
-          onRefresh={() => loadNews(search)}
           onRetry={() => loadNews(search)}
           onSearch={loadNews}
           search={search}
@@ -1129,7 +1443,11 @@ export default function GamingHub({ page = "gaming" }) {
                 aria-label={`Read ${article.title}`}
               >
                 {article.image && (
-                  <img src={article.image} alt="" loading="lazy" />
+                  <img
+                    src={article.image}
+                    alt=""
+                    loading="lazy"
+                  />
                 )}
               </a>
 
@@ -1169,9 +1487,11 @@ export default function GamingHub({ page = "gaming" }) {
       )}
 
       <footer className="gaming-source-footer">
-        {lastUpdated && <>Updated {lastUpdated.toLocaleTimeString()} · </>}
-        Headlines are collected from public RSS feeds. Articles remain the
-        property of their original publishers.
+        {lastUpdated && (
+          <>Updated {lastUpdated.toLocaleTimeString()} · </>
+        )}
+        Headlines are collected from public RSS feeds. Articles remain
+        the property of their original publishers.
       </footer>
     </main>
   );
