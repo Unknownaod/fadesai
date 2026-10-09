@@ -1,20 +1,69 @@
-
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProBadge } from "./ProBadge";
 
 const GAMING_PAGES = [
-  { id: "gaming", label: "Gaming Hub", icon: "🎮", description: "Your gaming dashboard" },
-  { id: "gaming-news", label: "Gaming News", icon: "📰", description: "Latest stories from gaming sites" },
-  { id: "gaming-releases", label: "New Releases", icon: "🚀", description: "New and upcoming games" },
-  { id: "gaming-esports", label: "Esports", icon: "🏆", description: "Competitive gaming news" },
-  { id: "gaming-updates", label: "Game Updates", icon: "🔄", description: "Patches and announcements" },
-  { id: "gaming-deals", label: "Gaming Deals", icon: "🏷️", description: "Sales and discounts" },
-  { id: "gaming-pc", label: "PC Gaming", icon: "🖥️", description: "PC games and hardware" },
-  { id: "gaming-playstation", label: "PlayStation", icon: "🎯", description: "PlayStation news" },
-  { id: "gaming-xbox", label: "Xbox", icon: "🟩", description: "Xbox news" },
-  { id: "gaming-nintendo", label: "Nintendo", icon: "🍄", description: "Nintendo news" },
+  {
+    id: "gaming",
+    label: "Gaming Hub",
+    icon: "🎮",
+    description: "Your gaming dashboard",
+  },
+  {
+    id: "gaming-news",
+    label: "Gaming News",
+    icon: "📰",
+    description: "Latest stories from gaming sites",
+  },
+  {
+    id: "gaming-releases",
+    label: "New Releases",
+    icon: "🚀",
+    description: "New and upcoming games",
+  },
+  {
+    id: "gaming-esports",
+    label: "Esports",
+    icon: "🏆",
+    description: "Competitive gaming news",
+  },
+  {
+    id: "gaming-updates",
+    label: "Game Updates",
+    icon: "🔄",
+    description: "Patches and announcements",
+  },
+  {
+    id: "gaming-deals",
+    label: "Gaming Deals",
+    icon: "🏷️",
+    description: "Sales and discounts",
+  },
+  {
+    id: "gaming-pc",
+    label: "PC Gaming",
+    icon: "🖥️",
+    description: "PC games and hardware",
+  },
+  {
+    id: "gaming-playstation",
+    label: "PlayStation",
+    icon: "🎯",
+    description: "PlayStation news",
+  },
+  {
+    id: "gaming-xbox",
+    label: "Xbox",
+    icon: "🟩",
+    description: "Xbox news",
+  },
+  {
+    id: "gaming-nintendo",
+    label: "Nintendo",
+    icon: "🍄",
+    description: "Nintendo news",
+  },
 ];
 
 export function Sidebar({
@@ -44,12 +93,20 @@ export function Sidebar({
   activePage = "chat",
   onNavigate,
 }) {
-  const [gamingExpanded, setGamingExpanded] = useState(
+  const [gamingExpanded, setGamingExpanded] = useState(() =>
     activePage.startsWith("gaming")
   );
 
+  // Expand the gaming section when navigating to a gaming page.
+  useEffect(() => {
+    if (activePage.startsWith("gaming")) {
+      setGamingExpanded(true);
+    }
+  }, [activePage]);
+
   const navigate = (page) => {
     onNavigate?.(page);
+
     if (typeof window !== "undefined" && window.innerWidth < 760) {
       setSidebarOpen?.(false);
     }
@@ -79,11 +136,16 @@ export function Sidebar({
               value={editingTitle ?? title}
               onChange={(event) => setEditingTitle?.(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Escape") cancelRename?.();
+                if (event.key === "Escape") {
+                  cancelRename?.();
+                }
               }}
               aria-label="Rename chat"
             />
-            <button type="submit" title="Save title">✓</button>
+
+            <button type="submit" title="Save title" aria-label="Save title">
+              ✓
+            </button>
           </form>
         ) : (
           <>
@@ -96,7 +158,9 @@ export function Sidebar({
               <span className="sidebar-chat-icon">
                 {chat.favorite ? "⭐" : "💬"}
               </span>
+
               <span className="sidebar-chat-title">{title}</span>
+
               {chat.pinned && <span title="Pinned">📌</span>}
             </button>
 
@@ -104,27 +168,36 @@ export function Sidebar({
               <button
                 type="button"
                 title="Rename chat"
+                aria-label={`Rename ${title}`}
                 onClick={() => startRename?.(id, title)}
               >
                 ✏️
               </button>
+
               <button
                 type="button"
                 title={chat.pinned ? "Unpin chat" : "Pin chat"}
+                aria-label={chat.pinned ? "Unpin chat" : "Pin chat"}
                 onClick={() => togglePin?.(id)}
               >
                 📌
               </button>
+
               <button
                 type="button"
                 title={chat.favorite ? "Remove favorite" : "Add favorite"}
+                aria-label={
+                  chat.favorite ? "Remove favorite" : "Add favorite"
+                }
                 onClick={() => toggleFavorite?.(id)}
               >
                 {chat.favorite ? "★" : "☆"}
               </button>
+
               <button
                 type="button"
                 title="Delete chat"
+                aria-label={`Delete ${title}`}
                 onClick={() => deleteChat?.(id)}
               >
                 🗑️
@@ -147,7 +220,11 @@ export function Sidebar({
         />
       )}
 
-      <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      <aside
+        className={`sidebar ${
+          sidebarOpen ? "sidebar-open" : "sidebar-closed"
+        }`}
+      >
         <div className="sidebar-header">
           <button
             type="button"
@@ -155,8 +232,14 @@ export function Sidebar({
             onClick={() => navigate("chat")}
             title="Fades AI home"
           >
-            <img src={logoSrc || "/logo.png"} alt="" className="sidebar-logo" />
+            <img
+              src={logoSrc || "/logo.png"}
+              alt=""
+              className="sidebar-logo"
+            />
+
             <span>Fades AI</span>
+
             <ProBadge />
           </button>
 
@@ -186,7 +269,7 @@ export function Sidebar({
 
           <button
             type="button"
-            className={`sidebar-nav-button ${activePage === "chat-search" ? "selected" : ""}`}
+            className="sidebar-nav-button"
             onClick={() => {
               navigate("chat");
               searchInputRef?.current?.focus();
@@ -197,39 +280,56 @@ export function Sidebar({
           </button>
         </div>
 
+        {/* Gaming navigation */}
         <div className="sidebar-section">
-          <button
-            type="button"
-            className={`sidebar-section-heading ${activePage.startsWith("gaming") ? "selected" : ""}`}
-            onClick={() => {
-              setGamingExpanded((expanded) => !expanded);
-              navigate("gaming");
-            }}
-            aria-expanded={gamingExpanded}
-          >
-            <span className="sidebar-section-heading-left">
+          <div className="sidebar-section-heading">
+            <button
+              type="button"
+              className={`sidebar-nav-button ${
+                activePage.startsWith("gaming") ? "selected" : ""
+              }`}
+              onClick={() => navigate("gaming")}
+              title="Open Gaming Hub"
+            >
               <span>🎮</span>
-              <span>Gaming</span>
-            </span>
-            <span className="sidebar-chevron">{gamingExpanded ? "⌄" : "›"}</span>
-          </button>
+              <span>Gaming Hub</span>
+            </button>
+
+            <button
+              type="button"
+              className="sidebar-chevron"
+              onClick={() =>
+                setGamingExpanded((expanded) => !expanded)
+              }
+              aria-label={
+                gamingExpanded
+                  ? "Collapse gaming navigation"
+                  : "Expand gaming navigation"
+              }
+              aria-expanded={gamingExpanded}
+            >
+              {gamingExpanded ? "⌄" : "›"}
+            </button>
+          </div>
 
           {gamingExpanded && (
             <div className="sidebar-gaming-links">
-              {GAMING_PAGES.map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={`sidebar-nav-button sidebar-gaming-button ${
-                    activePage === page.id ? "selected" : ""
-                  }`}
-                  onClick={() => navigate(page.id)}
-                  title={page.description}
-                >
-                  <span className="sidebar-nav-icon">{page.icon}</span>
-                  <span>{page.label}</span>
-                </button>
-              ))}
+              {GAMING_PAGES.filter((page) => page.id !== "gaming").map(
+                (page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className={`sidebar-nav-button sidebar-gaming-button ${
+                      activePage === page.id ? "selected" : ""
+                    }`}
+                    onClick={() => navigate(page.id)}
+                    title={page.description}
+                  >
+                    <span className="sidebar-nav-icon">{page.icon}</span>
+                    <span>{page.label}</span>
+                  </button>
+                )
+              )}
             </div>
           )}
         </div>
@@ -243,6 +343,7 @@ export function Sidebar({
             className="sidebar-search"
             aria-label="Search chats"
           />
+
           {search && (
             <button
               type="button"
@@ -276,7 +377,9 @@ export function Sidebar({
               filteredChats.map(renderChat)
             ) : (
               <div className="sidebar-empty">
-                {search ? "No chats match your search." : "Your conversations will appear here."}
+                {search
+                  ? "No chats match your search."
+                  : "Your conversations will appear here."}
               </div>
             )}
           </section>
@@ -292,12 +395,15 @@ export function Sidebar({
         <div className="sidebar-footer">
           <button
             type="button"
-            className={`sidebar-nav-button ${activePage === "settings" ? "selected" : ""}`}
+            className={`sidebar-nav-button ${
+              activePage === "settings" ? "selected" : ""
+            }`}
             onClick={() => navigate("settings")}
           >
             <span>⚙️</span>
             <span>Settings</span>
           </button>
+
           <div className="sidebar-footer-caption">
             Fades AI · Gaming and beyond
           </div>
