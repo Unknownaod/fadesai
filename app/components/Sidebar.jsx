@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ProBadge } from "./ProBadge";
 
 const GAMING_PAGES = [
@@ -45,14 +46,46 @@ export function Sidebar({
   toggleFavorite,
   activePage = "chat",
   onNavigate,
+
+  // account
+  user = null, // { name, email, image }
+  isPro = false, // Pro badge only shows when true
+  onSignOut,
+  onOpenSettings, // optional override; defaults to router.push("/settings")
+  onOpenAbout, // optional override; defaults to router.push("/settings?tab=about")
 }) {
+  const router = useRouter();
+
   const [gamingExpanded, setGamingExpanded] = useState(() =>
     activePage.startsWith("gaming")
   );
+  const [profileOpen, setProfileOpen] = useState(false);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     if (activePage.startsWith("gaming")) setGamingExpanded(true);
   }, [activePage]);
+
+  // close the profile menu on outside click / Escape
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const onDown = (e) => {
+      if (bottomRef.current && !bottomRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setProfileOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
 
   const closeOnMobile = () => {
     if (typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT) {
@@ -64,6 +97,29 @@ export function Sidebar({
     onNavigate?.(page);
     closeOnMobile();
   };
+
+  const goSettings = () => {
+    setProfileOpen(false);
+    closeOnMobile();
+    if (onOpenSettings) onOpenSettings();
+    else router.push("/settings");
+  };
+
+  const goAbout = () => {
+    setProfileOpen(false);
+    closeOnMobile();
+    if (onOpenAbout) onOpenAbout();
+    else router.push("/settings?tab=about");
+  };
+
+  const signOut = () => {
+    setProfileOpen(false);
+    onSignOut?.();
+  };
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "Guest";
+  const displaySub = user?.email || (isPro ? "Fades AI Pro" : "Not signed in");
+  const initial = (user?.name || user?.email || "G").trim().charAt(0).toUpperCase();
 
   const renderChat = (chat) => {
     const id = chat.id ?? chat._id;
@@ -169,7 +225,7 @@ export function Sidebar({
             </span>
             <span className="brand-name">
               Fades AI
-              <ProBadge />
+              {isPro && <ProBadge />}
             </span>
           </button>
 
@@ -293,19 +349,49 @@ export function Sidebar({
           )}
         </div>
 
-        {/* bottom */}
-        <div className="sidebar-bottom">
+        {/* bottom: click yourself -> profile menu */}
+        <div className="sidebar-bottom" ref={bottomRef}>
+          {profileOpen && (
+            <div className="profile-menu" role="menu">
+              <button type="button" role="menuitem" onClick={goSettings}>
+                Settings
+              </button>
+              <button type="button" role="menuitem" onClick={goAbout}>
+                About
+              </button>
+              {onSignOut && (
+                <button type="button" role="menuitem" className="danger" onClick={signOut}>
+                  Sign out
+                </button>
+              )}
+            </div>
+          )}
+
           <button
             type="button"
-            className={`sidebar-user ${activePage === "settings" ? "selected" : ""}`}
-            onClick={() => navigate("settings")}
+            className="sidebar-user"
+            onClick={() => setProfileOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={profileOpen}
           >
-            <span className="user-avatar">⚙</span>
-            <span className="user-info">
-              <strong>Settings</strong>
-              <span>Fades AI · Gaming and beyond</span>
+            <span className="user-avatar">
+              {user?.image ? (
+                <img
+                  src={user.image}
+                  alt=""
+                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : (
+                initial
+              )}
             </span>
-            <span className="user-arrow">›</span>
+
+            <span className="user-info">
+              <strong>{displayName}</strong>
+              <span>{displaySub}</span>
+            </span>
+
+            <span className="user-arrow">{profileOpen ? "⌄" : "⌃"}</span>
           </button>
         </div>
       </aside>
