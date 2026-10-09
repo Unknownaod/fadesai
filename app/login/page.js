@@ -5,34 +5,38 @@ import { useSearchParams } from "next/navigation";
 import "./login.css";
 
 /*
+ * =========================================================
  * FADES LOGIN  →  app/login/page.js   (served at fades.lol/login)
- *
- * Auth API (cookie session):
- *   GET  /auth/me                  → current user (401 when signed out)
- *   POST /auth/login               → { email, password }
- *   POST /auth/signup              → { username, email, password }
- *                                    (returns requiresEmailVerification, no session yet)
- *   POST /auth/verify-email        → { email, code }  (sets session cookie)
- *   POST /auth/resend-verification → { email }
+ * =========================================================
+ * Uses the auth API (cookie session):
+ *   GET  /auth/me                   → current user (401 when signed out)
+ *   POST /auth/login                → { email, password, code? }
+ *        401 TWOFA_REQUIRED         → ask for the authenticator / backup code
+ *        403 EMAIL_NOT_VERIFIED     → ask for the emailed 6-digit code
+ *   POST /auth/signup               → { username, email, password }
+ *        201 requiresEmailVerification
+ *   POST /auth/verify-email         → { email, code }  (sets the session)
+ *   POST /auth/resend-verification  → { email }
  *   POST /auth/logout
- *   POST /auth/browser/link        → { code }
+ *   POST /auth/browser/link         → { code }
  *
  * Query params:
  *   ?from=browser   shows the "you can close this tab" screen
  *   ?next=/chat     where to go after login (default "/")
- *   ?code=<32 hex>  sign-in handoff from Fades Browser
+ *   ?code=<32 hex>  sign-in handoff from Fades Browser. After login the
+ *                   page asks "Connect Fades Browser?" and, on confirm,
+ *                   POSTs /auth/browser/link { code } so the browser can
+ *                   claim its own token (no shared cookies needed).
  *
- * Remembered accounts (email + username only, never passwords) are kept
- * in localStorage so the user can pick one, switch, or remove it.
+ * Styles live in ./login.css
  */
 
 const AUTH_API = "https://api.fades.lol/auth";
 const LOGO = "/logo.png";
 const CODE_RE = /^[a-f0-9]{32}$/;
-const KNOWN_KEY = "fades-known-accounts";
-const MAX_KNOWN = 5;
-const RESEND_COOLDOWN = 30;
+const RESEND_COOLDOWN_S = 60;
 
+/* short code shown on both sides so the user can confirm they match */
 function formatUserCode(code) {
   const text = code.slice(0, 8).toUpperCase();
 
@@ -43,39 +47,6 @@ function buildBody(mode, { username, email, password }) {
   return mode === "signup"
     ? { username: username.trim(), email: email.trim(), password }
     : { email: email.trim(), password };
-}
-
-/* ---------- remembered accounts ---------- */
-
-function loadKnown() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(KNOWN_KEY) || "[]");
-
-    return Array.isArray(raw) ? raw.filter((a) => a && a.email) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveKnown(list) {
-  try {
-    localStorage.setItem(KNOWN_KEY, JSON.stringify(list.slice(0, MAX_KNOWN)));
-  } catch {}
-}
-
-function upsertKnown(list, entry) {
-  const key = entry.email.toLowerCase();
-
-  return [
-    { email: entry.email, username: entry.username || "", lastUsed: Date.now() },
-    ...list.filter((a) => a.email.toLowerCase() !== key),
-  ].slice(0, MAX_KNOWN);
-}
-
-function initialOf(account) {
-  const text = (account && (account.username || account.name || account.email)) || "?";
-
-  return text.trim().charAt(0).toUpperCase() || "?";
 }
 
 async function authFetch(path, options = {}) {
@@ -91,40 +62,20 @@ async function authFetch(path, options = {}) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const needsVerify = Boolean(data && data.requiresEmailVerification);
-
     const error = new Error(
-      needsVerify
-        ? "Please verify your email first."
-        : (data && (data.error || data.message)) ||
-            (response.status === 401
-              ? "Wrong email or password."
-              : `Something went wrong (${response.status}).`)
+      (data && (data.error || data.message)) ||
+        (response.status === 401
+          ? "Wrong email or password."
+          : `Something went wrong (${response.status}).`)
     );
 
     error.status = response.status;
-    error.data = data;
+    error.data = data; // lets callers read requiresTwoFactor, requiresEmailVerification, ...
 
     throw error;
   }
 
   return data;
-}
-
-function AccountCard({ account }) {
-  const name = account.username || account.name || account.email || "Your account";
-
-  return (
-    <div className="fl-current">
-      <span className="fl-avatar">{initialOf(account)}</span>
-
-      <span className="fl-account-text">
-        <strong>{name}</strong>
-
-        {account.email && account.email !== name && <small>{account.email}</small>}
-      </span>
-    </div>
-  );
 }
 
 function LoginForm() {
@@ -137,46 +88,22 @@ function LoginForm() {
   const code = CODE_RE.test(rawCode) ? rawCode : "";
 
   const [mode, setMode] = useState("login");
+  const [step, setStep] = useState("form"); // form | twofa | verify
   const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [twofaCode, setTwofaCode] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [cooldown, setCooldown] = useState(0);
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [link, setLink] = useState("idle"); // idle | linking | linked | cancelled
   const [linkError, setLinkError] = useState("");
 
-  const [known, setKnown] = useState([]);
-  const [view, setView] = useState("form"); // form | chooser | verify
-  const [selected, setSelected] = useState(null); // remembered account being signed in to
-
-  const [verifyEmail, setVerifyEmail] = useState("");
-  const [verifyCode, setVerifyCode] = useState("");
-  const [verifyBusy, setVerifyBusy] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
-  const [verifyInfo, setVerifyInfo] = useState("");
-  const [cooldown, setCooldown] = useState(0);
-
-  const remember = (account, fallbackEmail = "") => {
-    const email = (account && account.email) || fallbackEmail;
-
-    if (!email) return;
-
-    setKnown((list) => {
-      const updated = upsertKnown(list, {
-        email,
-        username: (account && (account.username || account.name)) || "",
-      });
-
-      saveKnown(updated);
-
-      return updated;
-    });
-  };
-
-  const finish = (account, fallbackEmail) => {
+  const finish = (account) => {
     setUser(account);
-    remember(account, fallbackEmail);
 
     if (!fromBrowser && !code) window.location.assign(next);
   };
@@ -202,13 +129,9 @@ function LoginForm() {
     }
   };
 
-  /* load remembered accounts + check for an existing session */
+  /* already signed in? */
   useEffect(() => {
     let cancelled = false;
-    const list = loadKnown();
-
-    setKnown(list);
-    setView(list.length > 0 ? "chooser" : "form");
 
     authFetch("/me")
       .then((data) => {
@@ -216,16 +139,6 @@ function LoginForm() {
 
         if (!cancelled && account && (account.id || account.username || account.email)) {
           setUser(account);
-
-          if (account.email) {
-            const updated = upsertKnown(list, {
-              email: account.email,
-              username: account.username || account.name || "",
-            });
-
-            setKnown(updated);
-            saveKnown(updated);
-          }
         }
       })
       .catch(() => {})
@@ -236,153 +149,86 @@ function LoginForm() {
     };
   }, []);
 
-  /* resend cooldown timer */
+  /* resend countdown */
   useEffect(() => {
-    if (cooldown <= 0) return;
+    if (cooldown <= 0) return undefined;
 
-    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
 
     return () => clearTimeout(timer);
   }, [cooldown]);
 
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
 
-  /* ---------- account picker actions ---------- */
-
-  const pickAccount = (account) => {
-    setSelected(account);
-    setMode("login");
+  const resetToForm = () => {
+    setStep("form");
+    setTwofaCode("");
+    setVerifyCode("");
     setError("");
-    setForm((f) => ({ ...f, email: account.email, password: "" }));
-    setView("form");
-  };
-
-  const useAnotherAccount = () => {
-    setSelected(null);
-    setMode("login");
-    setError("");
-    setForm({ username: "", email: "", password: "" });
-    setView("form");
-  };
-
-  const backToChooser = () => {
-    setSelected(null);
-    setError("");
-    setForm((f) => ({ ...f, password: "" }));
-    setView("chooser");
-  };
-
-  const forgetAccount = (email) => {
-    const updated = known.filter((a) => a.email.toLowerCase() !== email.toLowerCase());
-
-    setKnown(updated);
-    saveKnown(updated);
-
-    if (updated.length === 0) setView("form");
-  };
-
-  const signOut = async (nextView) => {
-    try {
-      await authFetch("/logout", { method: "POST" });
-    } catch {}
-
-    setUser(null);
-    setLink("idle");
-    setLinkError("");
-    setSelected(null);
-    setError("");
-    setForm((f) => ({ ...f, password: "" }));
-    setView(nextView || (known.length > 0 ? "chooser" : "form"));
+    setNotice("");
   };
 
   /* ---------- email verification ---------- */
 
-  const resendCode = async (email = verifyEmail) => {
-    if (!email || cooldown > 0) return;
-
-    setVerifyError("");
-    setVerifyInfo("");
+  const sendCode = async (email, { auto = false } = {}) => {
+    setError("");
 
     try {
       await authFetch("/resend-verification", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim() }),
       });
 
-      setVerifyInfo("A new code is on its way.");
-      setCooldown(RESEND_COOLDOWN);
-    } catch (failure) {
-      setVerifyError(
-        failure.status === undefined
-          ? "Can't reach Fades right now. Try again."
-          : failure.message
-      );
+      setNotice(`We sent a 6-digit code to ${email.trim()}.`);
+      setCooldown(RESEND_COOLDOWN_S);
+    } catch (sendError) {
+      if (auto) {
+        // a code may already be active (e.g. just sent at signup) – don't alarm the user
+        setNotice(sendError.message);
+      } else {
+        setError(
+          sendError.status === undefined
+            ? "Can't reach Fades right now. Try again."
+            : sendError.message
+        );
+      }
     }
-  };
-
-  const goVerify = (email, { resend = false } = {}) => {
-    setVerifyEmail(email);
-    setVerifyCode("");
-    setVerifyError("");
-    setVerifyInfo(resend ? "" : `We sent a code to ${email}.`);
-    setView("verify");
-
-    if (resend) resendCode(email);
-    else setCooldown(RESEND_COOLDOWN);
   };
 
   const submitVerify = async (event) => {
     event.preventDefault();
 
-    if (verifyBusy) return;
+    if (busy) return;
 
-    const value = verifyCode.trim();
+    setError("");
 
-    if (!value) {
-      setVerifyError("Enter the code from your email.");
+    if (!/^\d{6}$/.test(verifyCode)) {
+      setError("Enter the 6-digit code from your email.");
 
       return;
     }
 
-    setVerifyBusy(true);
-    setVerifyError("");
+    setBusy(true);
 
     try {
       const data = await authFetch("/verify-email", {
         method: "POST",
-        body: JSON.stringify({ email: verifyEmail, code: value }),
+        body: JSON.stringify({ email: form.email.trim(), code: verifyCode }),
       });
 
-      // the cookie is set now – with a ?code= this lands on "Connect Fades Browser?"
-      let account = data && data.user;
-
-      if (!account) {
-        const me = await authFetch("/me");
-
-        account = me && (me.user || me);
-      }
-
-      finish(account || {}, verifyEmail);
-    } catch (failure) {
-      setVerifyError(
-        failure.status === undefined
-          ? "Can't reach Fades right now. Try again."
-          : failure.message
+      finish((data && data.user) || {});
+    } catch (verifyError) {
+      setError(
+        verifyError.status === undefined
+          ? "Can't reach Fades right now. Check your connection and try again."
+          : verifyError.message
       );
     } finally {
-      setVerifyBusy(false);
+      setBusy(false);
     }
   };
 
-  const leaveVerify = () => {
-    setVerifyCode("");
-    setVerifyError("");
-    setVerifyInfo("");
-    setMode("login");
-    setView(known.length > 0 ? "chooser" : "form");
-  };
-
-  /* ---------- submit ---------- */
+  /* ---------- sign in / sign up ---------- */
 
   const submit = async (event) => {
     event.preventDefault();
@@ -390,11 +236,10 @@ function LoginForm() {
     if (busy) return;
 
     setError("");
+    setNotice("");
 
-    const email = selected ? selected.email : form.email;
-
-    if (!email.trim() || !form.password) {
-      setError(selected ? "Enter your password." : "Enter your email and password.");
+    if (!form.email.trim() || !form.password) {
+      setError("Enter your email and password.");
 
       return;
     }
@@ -418,13 +263,15 @@ function LoginForm() {
     try {
       const data = await authFetch(mode === "signup" ? "/signup" : "/login", {
         method: "POST",
-        body: JSON.stringify(buildBody(mode, { ...form, email })),
+        body: JSON.stringify(buildBody(mode, form)),
       });
 
       // new accounts must verify their email before they get a session
       if (data && data.requiresEmailVerification) {
-        setForm((f) => ({ ...f, password: "" }));
-        goVerify(email.trim());
+        setVerifyCode("");
+        setStep("verify");
+        setNotice(`We sent a 6-digit code to ${form.email.trim()}.`);
+        setCooldown(RESEND_COOLDOWN_S);
 
         return;
       }
@@ -438,11 +285,20 @@ function LoginForm() {
         account = me && (me.user || me);
       }
 
-      finish(account || {}, email.trim());
+      finish(account || {});
     } catch (submitError) {
-      if (submitError.data && submitError.data.requiresEmailVerification) {
-        // existing account that never verified: send a fresh code
-        goVerify(email.trim(), { resend: true });
+      const data = submitError.data;
+
+      if (data && data.requiresTwoFactor && data.error === "TWOFA_REQUIRED") {
+        setTwofaCode("");
+        setStep("twofa");
+      } else if (submitError.status === 403 && data && data.requiresEmailVerification) {
+        setVerifyCode("");
+        setStep("verify");
+        setBusy(false);
+        await sendCode(form.email, { auto: true });
+
+        return;
       } else {
         setError(
           submitError.status === undefined
@@ -453,6 +309,61 @@ function LoginForm() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /* ---------- two-step verification ---------- */
+
+  const submitTwofa = async (event) => {
+    event.preventDefault();
+
+    if (busy) return;
+
+    setError("");
+
+    const cleaned = twofaCode.trim();
+
+    if (!cleaned) {
+      setError("Enter your 6-digit code or a backup code.");
+
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const data = await authFetch("/login", {
+        method: "POST",
+        body: JSON.stringify({ ...buildBody("login", form), code: cleaned }),
+      });
+
+      let account = data && data.user;
+
+      if (!account) {
+        const me = await authFetch("/me");
+
+        account = me && (me.user || me);
+      }
+
+      finish(account || {});
+    } catch (twofaError) {
+      setError(
+        twofaError.status === undefined
+          ? "Can't reach Fades right now. Check your connection and try again."
+          : twofaError.message
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await authFetch("/logout", { method: "POST" });
+    } catch {}
+
+    setUser(null);
+    resetToForm();
+    setForm((f) => ({ ...f, password: "" }));
   };
 
   const name = user && (user.username || user.name || user.email || "your account");
@@ -473,7 +384,6 @@ function LoginForm() {
             <div className="fl-spinner" />
           </div>
         ) : user && code ? (
-          /* ---------- signed in + browser handoff ---------- */
           <div className="fl-done">
             {link === "linked" ? (
               <>
@@ -491,20 +401,17 @@ function LoginForm() {
                 <h1>Not connected</h1>
 
                 <p>Nothing was shared with the browser. You can close this tab.</p>
-
-                <button className="fl-link" onClick={() => setLink("idle")}>
-                  Changed your mind? Go back
-                </button>
               </>
             ) : (
               <>
                 <h1>Connect Fades Browser?</h1>
 
-                <p>Only continue if this code matches the one shown in your browser:</p>
+                <p>
+                  Signed in as <b>{name}</b>. Only continue if this code
+                  matches the one shown in your browser:
+                </p>
 
                 <div className="fl-code">{formatUserCode(code)}</div>
-
-                <AccountCard account={user} />
 
                 {linkError && (
                   <div className="fl-error" role="alert">
@@ -525,28 +432,21 @@ function LoginForm() {
                     Cancel
                   </button>
                 </div>
-
-                <button className="fl-link" onClick={() => signOut()}>
-                  Not you? Switch account
-                </button>
               </>
             )}
           </div>
         ) : user ? (
-          /* ---------- signed in ---------- */
           <div className="fl-done">
             <div className="fl-check">✓</div>
 
             <h1>You're signed in</h1>
 
-            <AccountCard account={user} />
-
-            {fromBrowser && (
-              <p>
-                You can close this tab and head back to Fades Browser — your
-                sync will pick up automatically.
-              </p>
-            )}
+            <p>
+              Signed in as <b>{name}</b>.
+              {fromBrowser
+                ? " You can close this tab and head back to Fades Browser — your sync will pick up automatically."
+                : ""}
+            </p>
 
             <div className="fl-actions">
               {!fromBrowser && (
@@ -555,23 +455,61 @@ function LoginForm() {
                 </button>
               )}
 
-              <button className="fl-ghost" onClick={() => signOut()}>
-                Switch account
+              <button className="fl-ghost" onClick={signOut}>
+                Sign out
               </button>
             </div>
-
-            <button className="fl-link" onClick={() => signOut("form")}>
-              Sign out
-            </button>
           </div>
-        ) : view === "verify" ? (
-          /* ---------- verify email ---------- */
+        ) : step === "twofa" ? (
+          <>
+            <h1>Two-step verification</h1>
+
+            <p className="fl-sub">
+              Enter the 6-digit code from your authenticator app, or one of
+              your backup codes.
+            </p>
+
+            <form onSubmit={submitTwofa} noValidate>
+              <label>
+                <span>Authentication code</span>
+
+                <input
+                  className="fl-otp"
+                  value={twofaCode}
+                  onChange={(event) => setTwofaCode(event.target.value)}
+                  autoComplete="one-time-code"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  maxLength={12}
+                  placeholder="123456"
+                  autoFocus
+                />
+              </label>
+
+              {error && (
+                <div className="fl-error" role="alert">
+                  {error}
+                </div>
+              )}
+
+              <button className="fl-primary" type="submit" disabled={busy}>
+                {busy ? "Checking…" : "Verify and sign in"}
+              </button>
+            </form>
+
+            <p className="fl-foot">
+              <button type="button" onClick={resetToForm}>
+                ← Back to sign in
+              </button>
+            </p>
+          </>
+        ) : step === "verify" ? (
           <>
             <h1>Verify your email</h1>
 
             <p className="fl-sub">
-              Enter the code we sent to <b>{verifyEmail}</b>
-              {code ? ", then you can connect Fades Browser." : "."}
+              Enter the 6-digit code we emailed to <b>{form.email.trim()}</b>.
+              It expires in 10 minutes.
             </p>
 
             <form onSubmit={submitVerify} noValidate>
@@ -579,189 +517,115 @@ function LoginForm() {
                 <span>Verification code</span>
 
                 <input
-                  className="fl-code-input"
+                  className="fl-otp"
                   value={verifyCode}
-                  onChange={(event) => setVerifyCode(event.target.value)}
+                  onChange={(event) =>
+                    setVerifyCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  maxLength={12}
-                  placeholder="Enter code"
+                  maxLength={6}
+                  placeholder="123456"
                   autoFocus
                 />
               </label>
 
-              {verifyError && (
+              {notice && <div className="fl-notice">{notice}</div>}
+
+              {error && (
                 <div className="fl-error" role="alert">
-                  {verifyError}
+                  {error}
                 </div>
               )}
 
-              {verifyInfo && !verifyError && <div className="fl-info">{verifyInfo}</div>}
-
-              <button className="fl-primary" type="submit" disabled={verifyBusy}>
-                {verifyBusy ? "Verifying…" : "Verify"}
+              <button className="fl-primary" type="submit" disabled={busy}>
+                {busy ? "Verifying…" : "Verify email"}
               </button>
             </form>
 
             <p className="fl-foot">
               Didn't get it?{" "}
-              <button type="button" onClick={() => resendCode()} disabled={cooldown > 0}>
+              <button
+                type="button"
+                onClick={() => sendCode(form.email)}
+                disabled={cooldown > 0}
+              >
                 {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
               </button>
             </p>
 
-            <button className="fl-link" onClick={leaveVerify}>
-              ‹ Use a different email
-            </button>
-          </>
-        ) : view === "chooser" && known.length > 0 ? (
-          /* ---------- choose an account ---------- */
-          <>
-            <h1>Choose an account</h1>
-
-            <p className="fl-sub">
-              Pick an account to continue to Fades{code || fromBrowser ? " Browser" : ""}.
-            </p>
-
-            <ul className="fl-accounts">
-              {known.map((account) => (
-                <li key={account.email}>
-                  <button className="fl-account" onClick={() => pickAccount(account)}>
-                    <span className="fl-avatar">{initialOf(account)}</span>
-
-                    <span className="fl-account-text">
-                      <strong>{account.username || account.email}</strong>
-
-                      {account.username && <small>{account.email}</small>}
-                    </span>
-
-                    <span className="fl-account-arrow">›</span>
-                  </button>
-
-                  <button
-                    className="fl-account-remove"
-                    onClick={() => forgetAccount(account.email)}
-                    title="Remove from this device"
-                    aria-label={`Remove ${account.email} from this device`}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-
-              <li>
-                <button className="fl-account fl-account-other" onClick={useAnotherAccount}>
-                  <span className="fl-avatar fl-avatar-plus">＋</span>
-
-                  <span className="fl-account-text">
-                    <strong>Use another account</strong>
-                  </span>
-                </button>
-              </li>
-            </ul>
-
-            <p className="fl-hint">
-              Accounts are remembered on this device only. Passwords are never
-              saved.
+            <p className="fl-foot fl-foot-tight">
+              <button type="button" onClick={resetToForm}>
+                ← Back to sign in
+              </button>
             </p>
           </>
         ) : (
-          /* ---------- sign in / create account ---------- */
           <>
-            {known.length > 0 && (
-              <button className="fl-back" onClick={backToChooser}>
-                ‹ Choose an account
-              </button>
-            )}
-
-            <h1>
-              {selected
-                ? "Welcome back"
-                : mode === "login"
-                ? "Welcome back"
-                : "Create your account"}
-            </h1>
+            <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
 
             <p className="fl-sub">
-              {selected
-                ? "Enter your password to continue."
-                : mode === "login"
+              {mode === "login"
                 ? "Sign in to sync your bookmarks, history and tabs."
                 : "One account for Fades Browser, Chat and Mail."}
             </p>
 
-            {!selected && (
-              <div className="fl-tabs" role="tablist">
-                <button
-                  role="tab"
-                  aria-selected={mode === "login"}
-                  className={mode === "login" ? "active" : ""}
-                  onClick={() => {
-                    setMode("login");
-                    setError("");
-                  }}
-                >
-                  Sign in
-                </button>
+            <div className="fl-tabs" role="tablist">
+              <button
+                role="tab"
+                aria-selected={mode === "login"}
+                className={mode === "login" ? "active" : ""}
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
+              >
+                Sign in
+              </button>
 
-                <button
-                  role="tab"
-                  aria-selected={mode === "signup"}
-                  className={mode === "signup" ? "active" : ""}
-                  onClick={() => {
-                    setMode("signup");
-                    setError("");
-                  }}
-                >
-                  Create account
-                </button>
-              </div>
-            )}
+              <button
+                role="tab"
+                aria-selected={mode === "signup"}
+                className={mode === "signup" ? "active" : ""}
+                onClick={() => {
+                  setMode("signup");
+                  setError("");
+                }}
+              >
+                Create account
+              </button>
+            </div>
 
             <form onSubmit={submit} noValidate>
-              {selected ? (
-                <div className="fl-selected">
-                  <AccountCard account={selected} />
+              {mode === "signup" && (
+                <label>
+                  <span>Username</span>
 
-                  <button type="button" className="fl-link" onClick={backToChooser}>
-                    Not you?
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {mode === "signup" && (
-                    <label>
-                      <span>Username</span>
-
-                      <input
-                        value={form.username}
-                        onChange={set("username")}
-                        autoComplete="username"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        placeholder="yourname"
-                      />
-                    </label>
-                  )}
-
-                  <label>
-                    <span>Email</span>
-
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={set("email")}
-                      autoComplete="email"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      placeholder="you@example.com"
-                      autoFocus
-                    />
-                  </label>
-                </>
+                  <input
+                    value={form.username}
+                    onChange={set("username")}
+                    autoComplete="username"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    placeholder="yourname"
+                  />
+                </label>
               )}
+
+              <label>
+                <span>Email</span>
+
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={set("email")}
+                  autoComplete="email"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder="you@example.com"
+                  autoFocus
+                />
+              </label>
 
               <label>
                 <span>Password</span>
@@ -773,7 +637,6 @@ function LoginForm() {
                     onChange={set("password")}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                     placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
-                    autoFocus={Boolean(selected)}
                   />
 
                   <button
@@ -797,21 +660,19 @@ function LoginForm() {
               </button>
             </form>
 
-            {!selected && (
-              <p className="fl-foot">
-                {mode === "login" ? "New to Fades? " : "Already have an account? "}
+            <p className="fl-foot">
+              {mode === "login" ? "New to Fades? " : "Already have an account? "}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode(mode === "login" ? "signup" : "login");
-                    setError("");
-                  }}
-                >
-                  {mode === "login" ? "Create an account" : "Sign in"}
-                </button>
-              </p>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "login" ? "signup" : "login");
+                  setError("");
+                }}
+              >
+                {mode === "login" ? "Create an account" : "Sign in"}
+              </button>
+            </p>
           </>
         )}
       </section>
