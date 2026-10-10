@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import "./settings.css";
 
 const API_URL = "https://api.fades.lol";
-
 const SETTINGS_KEY = "fades.settings.v1";
 
 const DEFAULT_SETTINGS = {
@@ -15,6 +14,40 @@ const DEFAULT_SETTINGS = {
   showTimestamps: true,
 };
 
+function getProfileImage(user) {
+  if (!user || typeof user !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    user.image,
+    user.avatar,
+    user.avatarUrl,
+    user.avatarURL,
+    user.profilePicture,
+    user.profilePictureUrl,
+    user.profileImage,
+    user.photoURL,
+    user.picture,
+    user.imageUrl,
+    user.imageURL,
+    user.profile?.image,
+    user.profile?.avatar,
+    user.account?.image,
+    user.account?.avatar,
+    user.user?.image,
+    user.user?.avatar,
+  ];
+
+  return (
+    candidates.find(
+      (value) =>
+        typeof value === "string" &&
+        value.trim().length > 0
+    ) || null
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -22,8 +55,9 @@ export default function SettingsPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [settings, setSettings] =
-    useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState(
+    DEFAULT_SETTINGS
+  );
 
   const [activeSection, setActiveSection] =
     useState("account");
@@ -31,9 +65,7 @@ export default function SettingsPage() {
   useEffect(() => {
     try {
       const stored =
-        window.localStorage.getItem(
-          SETTINGS_KEY
-        );
+        window.localStorage.getItem(SETTINGS_KEY);
 
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -44,10 +76,7 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
-      console.error(
-        "Unable to load settings:",
-        error
-      );
+      console.error("Unable to load settings:", error);
     }
   }, []);
 
@@ -58,10 +87,7 @@ export default function SettingsPage() {
         JSON.stringify(settings)
       );
     } catch (error) {
-      console.error(
-        "Unable to save settings:",
-        error
-      );
+      console.error("Unable to save settings:", error);
     }
   }, [settings]);
 
@@ -79,29 +105,33 @@ export default function SettingsPage() {
           }
         );
 
-        const data =
-          await response.json().catch(
-            () => null
-          );
+        const data = await response.json().catch(
+          () => null
+        );
 
         if (cancelled) {
           return;
         }
 
-        if (!response.ok) {
+        if (
+          !response.ok ||
+          data?.authenticated === false ||
+          data?.loggedIn === false ||
+          data?.success === false
+        ) {
           setUser(null);
           return;
         }
 
         const currentUser =
-          data?.user || data;
+          data?.user ||
+          data?.account ||
+          data?.profile ||
+          data;
 
         setUser(currentUser || null);
       } catch (error) {
-        console.error(
-          "Unable to load account:",
-          error
-        );
+        console.error("Unable to load account:", error);
 
         if (!cancelled) {
           setUser(null);
@@ -131,18 +161,12 @@ export default function SettingsPage() {
     setSaving(true);
 
     try {
-      await fetch(
-        `${API_URL}/auth/logout`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
     } catch (error) {
-      console.error(
-        "Logout error:",
-        error
-      );
+      console.error("Logout error:", error);
     } finally {
       setSaving(false);
       router.push("/");
@@ -151,10 +175,9 @@ export default function SettingsPage() {
   }
 
   function handleResetSettings() {
-    const confirmed =
-      window.confirm(
-        "Reset all Fades settings to their defaults?"
-      );
+    const confirmed = window.confirm(
+      "Reset all Fades settings to their defaults?"
+    );
 
     if (!confirmed) {
       return;
@@ -174,53 +197,31 @@ export default function SettingsPage() {
       return "Not available";
     }
 
-    return date.toLocaleDateString(
-      undefined,
-      {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }
-    );
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   }
 
-  const isPro =
-    user?.plan === "pro";
+  const isPro = user?.plan === "pro";
 
   const displayName =
     user?.displayName ||
     user?.username ||
+    user?.name ||
     "Fades User";
 
-  const email =
-    user?.email ||
-    "No email available";
+  const email = user?.email || "No email available";
+  const profileImage = getProfileImage(user);
 
   const sections = [
-    {
-      id: "account",
-      label: "Account",
-    },
-    {
-      id: "appearance",
-      label: "Appearance",
-    },
-    {
-      id: "chat",
-      label: "Chat",
-    },
-    {
-      id: "ai",
-      label: "AI",
-    },
-    {
-      id: "privacy",
-      label: "Privacy",
-    },
-    {
-      id: "about",
-      label: "About",
-    },
+    { id: "account", label: "Account" },
+    { id: "appearance", label: "Appearance" },
+    { id: "chat", label: "Chat" },
+    { id: "ai", label: "AI" },
+    { id: "privacy", label: "Privacy" },
+    { id: "about", label: "About" },
   ];
 
   return (
@@ -240,17 +241,14 @@ export default function SettingsPage() {
           <div className="settings-title">
             <h1>Settings</h1>
             <p>
-              Manage your Fades account and
-              preferences.
+              Manage your Fades account and preferences.
             </p>
           </div>
         </header>
 
         <div className="settings-layout">
           <aside className="settings-sidebar">
-            <div className="sidebar-label">
-              Settings
-            </div>
+            <div className="sidebar-label">Settings</div>
 
             <nav className="settings-nav">
               {sections.map((section) => (
@@ -258,15 +256,12 @@ export default function SettingsPage() {
                   key={section.id}
                   type="button"
                   className={
-                    activeSection ===
-                    section.id
+                    activeSection === section.id
                       ? "settings-nav-item active"
                       : "settings-nav-item"
                   }
                   onClick={() =>
-                    setActiveSection(
-                      section.id
-                    )
+                    setActiveSection(section.id)
                   }
                 >
                   {section.label}
@@ -276,40 +271,42 @@ export default function SettingsPage() {
           </aside>
 
           <section className="settings-content">
-            {activeSection ===
-              "account" && (
+            {activeSection === "account" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>Account</h2>
-                    <p>
-                      Manage your Fades
-                      account.
-                    </p>
+                    <p>Manage your Fades account.</p>
                   </div>
                 </div>
 
                 {loadingUser ? (
                   <div className="loading-card">
                     <div className="loading-spinner" />
-                    <span>
-                      Loading account...
-                    </span>
+                    <span>Loading account...</span>
                   </div>
                 ) : user ? (
                   <>
                     <div className="account-card">
                       <div className="account-avatar">
-                        {displayName
-                          .charAt(0)
-                          .toUpperCase()}
+                        {profileImage ? (
+                          <img
+                            src={profileImage}
+                            alt={`${displayName}'s profile`}
+                            referrerPolicy="no-referrer"
+                            onError={(event) => {
+                              event.currentTarget.style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          displayName.charAt(0).toUpperCase()
+                        )}
                       </div>
 
                       <div className="account-info">
                         <div className="account-name-row">
-                          <strong>
-                            {displayName}
-                          </strong>
+                          <strong>{displayName}</strong>
 
                           {isPro && (
                             <span className="pro-badge">
@@ -330,9 +327,7 @@ export default function SettingsPage() {
                             : "plan-pill"
                         }
                       >
-                        {isPro
-                          ? "Pro"
-                          : "Free"}
+                        {isPro ? "Pro" : "Free"}
                       </div>
                     </div>
 
@@ -344,8 +339,7 @@ export default function SettingsPage() {
                           </span>
 
                           <span className="setting-description">
-                            Your Fades account
-                            is active.
+                            Your Fades account is active.
                           </span>
                         </div>
 
@@ -377,9 +371,7 @@ export default function SettingsPage() {
                           </span>
 
                           <span className="setting-description">
-                            {formatDate(
-                              user.createdAt
-                            )}
+                            {formatDate(user.createdAt)}
                           </span>
                         </div>
                       </div>
@@ -393,19 +385,14 @@ export default function SettingsPage() {
                           </div>
 
                           <div className="pro-card-description">
-                            Your Pro subscription
-                            is active.
+                            Your Pro subscription is active.
                           </div>
                         </div>
 
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() =>
-                            router.push(
-                              "/pro"
-                            )
-                          }
+                          onClick={() => router.push("/pro")}
                         >
                           Manage Pro
                         </button>
@@ -420,25 +407,44 @@ export default function SettingsPage() {
                           </div>
 
                           <div className="pro-card-description">
-                            Get higher AI limits,
-                            extended context,
-                            and priority access.
+                            Get higher AI limits, extended
+                            context, and priority access.
                           </div>
                         </div>
 
                         <button
                           type="button"
                           className="primary-button"
-                          onClick={() =>
-                            router.push(
-                              "/pro"
-                            )
-                          }
+                          onClick={() => router.push("/pro")}
                         >
                           View Pro
                         </button>
                       </div>
                     )}
+
+                    {/* Fades Account Manager */}
+                    <div className="account-manager-card">
+                      <div className="account-manager-info">
+                        <div className="account-manager-title">
+                          Fades Account Manager
+                        </div>
+
+                        <div className="account-manager-description">
+                          Manage your account security and
+                          account-wide settings.
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          router.push("/acc/security/manage")
+                        }
+                      >
+                        Go to Account Manager →
+                      </button>
+                    </div>
 
                     <div className="danger-card">
                       <div>
@@ -447,22 +453,18 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="danger-description">
-                          Sign out of your Fades
-                          account on this device.
+                          Sign out of your Fades account on
+                          this device.
                         </div>
                       </div>
 
                       <button
                         type="button"
                         className="danger-button"
-                        onClick={
-                          handleLogout
-                        }
+                        onClick={handleLogout}
                         disabled={saving}
                       >
-                        {saving
-                          ? "Signing out..."
-                          : "Sign out"}
+                        {saving ? "Signing out..." : "Sign out"}
                       </button>
                     </div>
                   </>
@@ -473,16 +475,13 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="empty-description">
-                      Sign in to manage your
-                      Fades account.
+                      Sign in to manage your Fades account.
                     </div>
 
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() =>
-                        router.push("/")
-                      }
+                      onClick={() => router.push("/")}
                     >
                       Go to Fades
                     </button>
@@ -491,16 +490,12 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeSection ===
-              "appearance" && (
+            {activeSection === "appearance" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>Appearance</h2>
-                    <p>
-                      Customize how Fades
-                      looks.
-                    </p>
+                    <p>Customize how Fades looks.</p>
                   </div>
                 </div>
 
@@ -512,33 +507,20 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Choose the appearance
-                        of Fades.
+                        Choose the appearance of Fades.
                       </span>
                     </div>
 
                     <select
                       className="settings-select"
-                      value={
-                        settings.theme
-                      }
+                      value={settings.theme}
                       onChange={(event) =>
-                        updateSetting(
-                          "theme",
-                          event.target
-                            .value
-                        )
+                        updateSetting("theme", event.target.value)
                       }
                     >
-                      <option value="dark">
-                        Dark
-                      </option>
-                      <option value="light">
-                        Light
-                      </option>
-                      <option value="system">
-                        System
-                      </option>
+                      <option value="dark">Dark</option>
+                      <option value="light">Light</option>
+                      <option value="system">System</option>
                     </select>
                   </div>
 
@@ -549,8 +531,7 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Use a tighter chat
-                        layout.
+                        Use a tighter chat layout.
                       </span>
                     </div>
 
@@ -568,9 +549,7 @@ export default function SettingsPage() {
                         )
                       }
                       aria-label="Toggle compact mode"
-                      aria-pressed={
-                        settings.compactMode
-                      }
+                      aria-pressed={settings.compactMode}
                     >
                       <span />
                     </button>
@@ -579,15 +558,13 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeSection ===
-              "chat" && (
+            {activeSection === "chat" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>Chat</h2>
                     <p>
-                      Configure your Fades
-                      chat experience.
+                      Configure your Fades chat experience.
                     </p>
                   </div>
                 </div>
@@ -600,8 +577,7 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Press Enter to send a
-                        message.
+                        Press Enter to send a message.
                       </span>
                     </div>
 
@@ -619,9 +595,7 @@ export default function SettingsPage() {
                         )
                       }
                       aria-label="Toggle Enter to send"
-                      aria-pressed={
-                        settings.enterToSend
-                      }
+                      aria-pressed={settings.enterToSend}
                     >
                       <span />
                     </button>
@@ -634,8 +608,7 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Show message times in
-                        conversations.
+                        Show message times in conversations.
                       </span>
                     </div>
 
@@ -653,9 +626,7 @@ export default function SettingsPage() {
                         )
                       }
                       aria-label="Toggle timestamps"
-                      aria-pressed={
-                        settings.showTimestamps
-                      }
+                      aria-pressed={settings.showTimestamps}
                     >
                       <span />
                     </button>
@@ -664,15 +635,13 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeSection ===
-              "ai" && (
+            {activeSection === "ai" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>AI</h2>
                     <p>
-                      Information about your
-                      Fades AI access.
+                      Information about your Fades AI access.
                     </p>
                   </div>
                 </div>
@@ -685,21 +654,16 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Your current Fades AI
-                        plan.
+                        Your current Fades AI plan.
                       </span>
                     </div>
 
                     <span
                       className={
-                        isPro
-                          ? "plan-pill pro"
-                          : "plan-pill"
+                        isPro ? "plan-pill pro" : "plan-pill"
                       }
                     >
-                      {isPro
-                        ? "Pro"
-                        : "Free"}
+                      {isPro ? "Pro" : "Free"}
                     </span>
                   </div>
 
@@ -740,20 +704,15 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="pro-card-description">
-                        Upgrade to Fades Pro for
-                        higher limits and extended
-                        context.
+                        Upgrade to Fades Pro for higher
+                        limits and extended context.
                       </div>
                     </div>
 
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() =>
-                        router.push(
-                          "/pro"
-                        )
-                      }
+                      onClick={() => router.push("/pro")}
                     >
                       Upgrade
                     </button>
@@ -762,15 +721,13 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeSection ===
-              "privacy" && (
+            {activeSection === "privacy" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>Privacy</h2>
                     <p>
-                      Manage your privacy and
-                      local preferences.
+                      Manage your privacy and local preferences.
                     </p>
                   </div>
                 </div>
@@ -783,9 +740,8 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Account conversations are
-                        stored with your Fades
-                        account. Guest conversations
+                        Account conversations are stored with
+                        your Fades account. Guest conversations
                         are temporary.
                       </span>
                     </div>
@@ -798,9 +754,8 @@ export default function SettingsPage() {
                       </span>
 
                       <span className="setting-description">
-                        Appearance and chat
-                        preferences are stored
-                        locally on this device.
+                        Appearance and chat preferences are
+                        stored locally on this device.
                       </span>
                     </div>
                   </div>
@@ -813,18 +768,15 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="reset-description">
-                      Reset your local Fades
-                      preferences to their
-                      defaults.
+                      Reset your local Fades preferences to
+                      their defaults.
                     </div>
                   </div>
 
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={
-                      handleResetSettings
-                    }
+                    onClick={handleResetSettings}
                   >
                     Reset
                   </button>
@@ -832,34 +784,24 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeSection ===
-              "about" && (
+            {activeSection === "about" && (
               <div className="settings-section">
                 <div className="section-heading">
                   <div>
                     <h2>About</h2>
-                    <p>
-                      Information about Fades.
-                    </p>
+                    <p>Information about Fades.</p>
                   </div>
                 </div>
 
                 <div className="about-card">
-                  <div className="about-logo">
-                    F
-                  </div>
+                  <div className="about-logo">F</div>
 
                   <div className="about-content">
                     <h3>Fades</h3>
 
-                    <p>
-                      AI built for everyday
-                      use.
-                    </p>
+                    <p>AI built for everyday use.</p>
 
-                    <span>
-                      Fades AI
-                    </span>
+                    <span>Fades AI</span>
                   </div>
                 </div>
 
