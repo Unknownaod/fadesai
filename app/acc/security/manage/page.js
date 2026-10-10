@@ -1339,8 +1339,7 @@ export default function AccountPage() {
                     </div>
 
                     <p className="fa-billing-footnote">
-                      Subscription status is provided by your Fades
-                      billing API and should be synchronized with Stripe.
+                      Your subscription status will appear here!
                     </p>
                   </div>
 
@@ -1417,9 +1416,6 @@ export default function AccountPage() {
                     <div className="fa-card-heading">
                       <div>
                         <h3>Billing details</h3>
-                        <p>
-                          Billing information returned by your Fades API.
-                        </p>
                       </div>
                     </div>
 
@@ -1471,9 +1467,6 @@ export default function AccountPage() {
                     <div className="fa-card-heading">
                       <div>
                         <h3>Invoices & payment history</h3>
-                        <p>
-                          Review invoices made available by your billing API.
-                        </p>
                       </div>
 
                       <span className="fa-mini-symbol">▤</span>
@@ -1484,8 +1477,7 @@ export default function AccountPage() {
                         <span>▤</span>
                         <h3>No invoices available</h3>
                         <p>
-                          Your invoices will appear here when the billing
-                          API returns them.
+                          Your invoices will appear here!
                         </p>
                       </div>
                     ) : (
