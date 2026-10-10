@@ -541,6 +541,7 @@ export function Sidebar({
               </small>
             </div>
           )}
+        </div>
 
         {/* Account menu */}
         <div className="sidebar-bottom" ref={bottomRef}>
