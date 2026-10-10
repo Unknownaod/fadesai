@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -8,11 +9,42 @@ const API_BASE = (
 ).replace(/\/+$/, "");
 
 const NAV_ITEMS = [
-  { id: "profile", label: "Profile", icon: "◉", description: "Your public identity" },
-  { id: "security", label: "Security", icon: "◇", description: "Password and protection" },
-  { id: "devices", label: "Devices", icon: "▣", description: "Where you're signed in" },
-  { id: "activity", label: "Activity", icon: "↗", description: "Recent account activity" },
-  { id: "danger", label: "Delete account", icon: "⌫", description: "Permanently remove your account" },
+  {
+    id: "profile",
+    label: "Profile",
+    icon: "◉",
+    description: "Your public identity",
+  },
+  {
+    id: "billing",
+    label: "Billing",
+    icon: "$",
+    description: "Plan and payments",
+  },
+  {
+    id: "security",
+    label: "Security",
+    icon: "◇",
+    description: "Password and protection",
+  },
+  {
+    id: "devices",
+    label: "Devices",
+    icon: "▣",
+    description: "Where you're signed in",
+  },
+  {
+    id: "activity",
+    label: "Activity",
+    icon: "↗",
+    description: "Recent account activity",
+  },
+  {
+    id: "danger",
+    label: "Delete account",
+    icon: "⌫",
+    description: "Permanently remove your account",
+  },
 ];
 
 function formatDate(value) {
@@ -28,8 +60,130 @@ function formatDate(value) {
       });
 }
 
+function formatShortDate(value) {
+  if (!value) return "Unknown";
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? "Unknown"
+    : date.toLocaleDateString(undefined, {
+        dateStyle: "medium",
+      });
+}
+
 function getError(data, fallback) {
   return data?.error || data?.message || fallback;
+}
+
+function titleCase(value) {
+  if (!value) return "Not available";
+
+  return String(value)
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMoney(amount, currency = "CAD", options = {}) {
+  if (amount === null || amount === undefined || amount === "") {
+    return "Not available";
+  }
+
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
+    return String(amount);
+  }
+
+  // The API should return Stripe amounts in minor currency units,
+  // such as cents. Set amountInMinorUnits to false for decimal amounts.
+  const normalizedAmount = options.amountInMinorUnits === false
+    ? numericAmount
+    : numericAmount / 100;
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: String(currency || "CAD").toUpperCase(),
+    }).format(normalizedAmount);
+  } catch {
+    return `${normalizedAmount.toFixed(2)} ${currency || "CAD"}`;
+  }
+}
+
+function safeExternalUrl(value, allowedHosts = []) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+
+    if (url.protocol !== "https:") return null;
+
+    if (
+      allowedHosts.length > 0 &&
+      !allowedHosts.includes(url.hostname)
+    ) {
+      return null;
+    }
+
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function getUserInitials(profile, user) {
+  const name =
+    profile.name ||
+    profile.username ||
+    user?.email ||
+    "Fades user";
+
+  return (
+    name
+      .trim()
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("") || "F"
+  );
+}
+
+function getSubscriptionStatus(subscription) {
+  if (!subscription) return "Free plan";
+
+  return titleCase(subscription.status || "unknown");
+}
+
+function isSubscriptionActive(subscription) {
+  return ["active", "trialing"].includes(
+    String(subscription?.status || "").toLowerCase()
+  );
+}
+
+function getBillingPrice(billing) {
+  const subscription = billing.subscription;
+  const plan = billing.plan;
+
+  if (subscription?.price != null) {
+    return {
+      amount: subscription.price,
+      currency: subscription.currency || plan?.currency || "CAD",
+      interval: subscription.interval || plan?.interval || "",
+    };
+  }
+
+  if (plan?.price != null) {
+    return {
+      amount: plan.price,
+      currency: plan.currency || "CAD",
+      interval: plan.interval || "",
+    };
+  }
+
+  return null;
 }
 
 export default function AccountPage() {
@@ -71,6 +225,18 @@ export default function AccountPage() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
+
+  const [billing, setBilling] = useState({
+    loading: false,
+    loaded: false,
+    available: false,
+    plan: null,
+    subscription: null,
+    invoices: [],
+    paymentMethod: null,
+    billingDetails: null,
+    error: "",
+  });
 
   const request = useCallback(async (path, options = {}) => {
     const response = await fetch(`${API_BASE}${path}`, {
@@ -158,6 +324,40 @@ export default function AccountPage() {
     }
   }, [request]);
 
+  const loadBilling = useCallback(async () => {
+    setBilling((current) => ({
+      ...current,
+      loading: true,
+      error: "",
+    }));
+
+    try {
+      const data = await request("/billing/overview");
+
+      setBilling({
+        loading: false,
+        loaded: true,
+        available: true,
+        plan: data.plan || data.subscription?.plan || null,
+        subscription: data.subscription || null,
+        invoices: Array.isArray(data.invoices) ? data.invoices : [],
+        paymentMethod: data.paymentMethod || null,
+        billingDetails: data.billingDetails || null,
+        error: "",
+      });
+    } catch (error) {
+      setBilling((current) => ({
+        ...current,
+        loading: false,
+        loaded: true,
+        available: false,
+        error:
+          error.message ||
+          "Unable to load your billing information.",
+      }));
+    }
+  }, [request]);
+
   useEffect(() => {
     loadAccount();
   }, [loadAccount]);
@@ -166,22 +366,20 @@ export default function AccountPage() {
     if (activeSection === "devices") loadSessions();
     if (activeSection === "activity") loadActivity();
     if (activeSection === "security") loadTwofa();
-  }, [activeSection, loadSessions, loadActivity, loadTwofa]);
+    if (activeSection === "billing" && !billing.loaded) loadBilling();
+  }, [
+    activeSection,
+    billing.loaded,
+    loadSessions,
+    loadActivity,
+    loadTwofa,
+    loadBilling,
+  ]);
 
-  const initials = useMemo(() => {
-    const name =
-      profile.name || profile.username || user?.email || "Fades user";
-
-    return (
-      name
-        .trim()
-        .split(/[\s@._-]+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0].toUpperCase())
-        .join("") || "F"
-    );
-  }, [profile.name, profile.username, user?.email]);
+  const initials = useMemo(
+    () => getUserInitials(profile, user),
+    [profile, user]
+  );
 
   async function runAction(action, successMessage) {
     setBusy(true);
@@ -221,7 +419,9 @@ export default function AccountPage() {
         body: JSON.stringify(body),
       });
 
-      setUser((current) => ({ ...current, ...data.user }));
+      if (data.user) {
+        setUser((current) => ({ ...current, ...data.user }));
+      }
 
       setProfile((current) => ({
         ...current,
@@ -229,15 +429,9 @@ export default function AccountPage() {
         email: data.user?.email || current.email,
       }));
 
-      if (data.user) {
-        setUser(data.user);
-      }
-
-      if (data.message) {
-        setNotice(data.message);
-      } else {
-        setNotice("Your profile has been saved.");
-      }
+      setNotice(
+        data.message || "Your profile has been saved."
+      );
     });
   }
 
@@ -249,30 +443,31 @@ export default function AccountPage() {
       return;
     }
 
-    await runAction(
-      async () => {
-        await request("/auth/password/change", {
-          method: "POST",
-          body: JSON.stringify({
-            currentPassword: passwordForm.currentPassword,
-            newPassword: passwordForm.newPassword,
-            signOutOthers: passwordForm.signOutOthers,
-          }),
-        });
+    await runAction(async () => {
+      await request("/auth/password/change", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+          signOutOthers: passwordForm.signOutOthers,
+        }),
+      });
 
-        setPasswordForm({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-          signOutOthers: true,
-        });
+      const shouldRefreshSessions = passwordForm.signOutOthers;
 
-        if (passwordForm.signOutOthers) {
-          await loadSessions();
-        }
-      },
-      "Your password has been changed."
-    );
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+        signOutOthers: true,
+      });
+
+      if (shouldRefreshSessions) {
+        await loadSessions();
+      }
+
+      setNotice("Your password has been changed.");
+    });
   }
 
   async function startTwofa() {
@@ -288,88 +483,91 @@ export default function AccountPage() {
         code: "",
         backupCodes: [],
       }));
+
+      setNotice("Scan the QR code with your authenticator app.");
     });
   }
 
   async function enableTwofa(event) {
     event.preventDefault();
 
-    await runAction(
-      async () => {
-        const data = await request("/auth/2fa/enable", {
-          method: "POST",
-          body: JSON.stringify({ code: twofa.code }),
-        });
+    await runAction(async () => {
+      const data = await request("/auth/2fa/enable", {
+        method: "POST",
+        body: JSON.stringify({ code: twofa.code }),
+      });
 
-        setTwofa((current) => ({
-          ...current,
-          enabled: true,
-          setup: null,
-          code: "",
-          backupCodes: data.backupCodes || [],
-          backupCodesLeft: (data.backupCodes || []).length,
-        }));
+      setTwofa((current) => ({
+        ...current,
+        enabled: true,
+        setup: null,
+        code: "",
+        backupCodes: data.backupCodes || [],
+        backupCodesLeft: (data.backupCodes || []).length,
+      }));
 
-        setUser((current) => ({
-          ...current,
-          twofaEnabled: true,
-        }));
-      },
-      "Two-step verification is now enabled. Save your backup codes somewhere safe."
-    );
+      setUser((current) => ({
+        ...current,
+        twofaEnabled: true,
+      }));
+
+      setNotice(
+        "Two-step verification is enabled. Save your backup codes somewhere safe."
+      );
+    });
   }
 
   async function disableTwofa(event) {
     event.preventDefault();
 
-    await runAction(
-      async () => {
-        await request("/auth/2fa/disable", {
-          method: "POST",
-          body: JSON.stringify({
-            password: twofa.password,
-            code: twofa.code,
-          }),
-        });
+    await runAction(async () => {
+      await request("/auth/2fa/disable", {
+        method: "POST",
+        body: JSON.stringify({
+          password: twofa.password,
+          code: twofa.code,
+        }),
+      });
 
-        setTwofa((current) => ({
-          ...current,
-          enabled: false,
-          password: "",
-          code: "",
-          setup: null,
-          backupCodes: [],
-          backupCodesLeft: 0,
-        }));
+      setTwofa((current) => ({
+        ...current,
+        enabled: false,
+        password: "",
+        code: "",
+        setup: null,
+        backupCodes: [],
+        backupCodesLeft: 0,
+      }));
 
-        setUser((current) => ({
-          ...current,
-          twofaEnabled: false,
-        }));
-      },
-      "Two-step verification has been turned off."
-    );
+      setUser((current) => ({
+        ...current,
+        twofaEnabled: false,
+      }));
+
+      setNotice("Two-step verification has been turned off.");
+    });
   }
 
   async function regenerateBackupCodes(event) {
     event.preventDefault();
 
-    await runAction(
-      async () => {
-        const data = await request("/auth/2fa/backup-codes", {
-          method: "POST",
-          body: JSON.stringify({ password: twofa.password }),
-        });
+    await runAction(async () => {
+      const data = await request("/auth/2fa/backup-codes", {
+        method: "POST",
+        body: JSON.stringify({ password: twofa.password }),
+      });
 
-        setTwofa((current) => ({
-          ...current,
-          backupCodes: data.backupCodes || [],
-          backupCodesLeft: (data.backupCodes || []).length,
-          password: "",
-        }));
-      },
-      "New backup codes generated. Your old backup codes no longer work."
-    );
+      setTwofa((current) => ({
+        ...current,
+        backupCodes: data.backupCodes || [],
+        backupCodesLeft: (data.backupCodes || []).length,
+        password: "",
+      }));
+
+      setNotice(
+        "New backup codes generated. Your old backup codes no longer work."
+      );
+    });
   }
 
   async function resendVerification() {
@@ -386,49 +584,53 @@ export default function AccountPage() {
   async function verifyEmail(event) {
     event.preventDefault();
 
-    await runAction(
-      async () => {
-        await request("/auth/email/verify", {
-          method: "POST",
-          body: JSON.stringify({ code: verifyCode }),
-        });
+    await runAction(async () => {
+      await request("/auth/email/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: verifyCode }),
+      });
 
-        setVerifyCode("");
+      setVerifyCode("");
 
-        const data = await request("/auth/me");
+      const data = await request("/auth/me");
+
+      if (data.user) {
         setUser(data.user);
-      },
-      "Your email address has been verified."
-    );
+
+        setProfile((current) => ({
+          ...current,
+          email: data.user.email || current.email,
+        }));
+      }
+
+      setNotice("Your email address has been verified.");
+    });
   }
 
   async function revokeSession(id) {
-    await runAction(
-      async () => {
-        await request(`/auth/sessions/${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        });
+    await runAction(async () => {
+      await request(`/auth/sessions/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
 
-        setSessions((current) =>
-          current.filter((item) => item.id !== id)
-        );
-      },
-      "Device signed out."
-    );
+      setSessions((current) =>
+        current.filter((item) => item.id !== id)
+      );
+
+      setNotice("Device signed out.");
+    });
   }
 
   async function revokeOtherSessions() {
-    await runAction(
-      async () => {
-        await request("/auth/sessions/revoke-others", {
-          method: "POST",
-          body: JSON.stringify({}),
-        });
+    await runAction(async () => {
+      await request("/auth/sessions/revoke-others", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
 
-        await loadSessions();
-      },
-      "Other devices have been signed out."
-    );
+      await loadSessions();
+      setNotice("Other devices have been signed out.");
+    });
   }
 
   async function signOut() {
@@ -461,6 +663,92 @@ export default function AccountPage() {
       window.location.href = "/?accountDeleted=1";
     });
   }
+
+  async function startCheckout() {
+    await runAction(async () => {
+      const data = await request("/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({
+          returnUrl:
+            `${window.location.origin}/acc/security/manage?section=billing`,
+        }),
+      });
+
+      const checkoutUrl = safeExternalUrl(data.url, [
+        "checkout.stripe.com",
+      ]);
+
+      if (!checkoutUrl) {
+        throw new Error(
+          "The billing API did not return a valid Stripe Checkout URL."
+        );
+      }
+
+      window.location.assign(checkoutUrl);
+    });
+  }
+
+  async function openBillingPortal() {
+    await runAction(async () => {
+      const data = await request("/billing/portal", {
+        method: "POST",
+        body: JSON.stringify({
+          returnUrl:
+            `${window.location.origin}/acc/security/manage?section=billing`,
+        }),
+      });
+
+      const portalUrl = safeExternalUrl(data.url, [
+        "billing.stripe.com",
+      ]);
+
+      if (!portalUrl) {
+        throw new Error(
+          "The billing API did not return a valid Stripe billing portal URL."
+        );
+      }
+
+      window.location.assign(portalUrl);
+    });
+  }
+
+  async function refreshBilling() {
+    await loadBilling();
+  }
+
+  function navigateToSection(section) {
+    setActiveSection(section);
+    setNotice("");
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("section", section);
+      window.history.replaceState({}, "", url);
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get("section");
+
+    if (NAV_ITEMS.some((item) => item.id === section)) {
+      setActiveSection(section);
+    }
+
+    if (params.get("billing") === "success") {
+      setNotice(
+        "You returned from checkout. Your subscription status will refresh from the billing API."
+      );
+      setBilling((current) => ({
+        ...current,
+        loaded: false,
+      }));
+    }
+
+    if (params.get("billing") === "cancelled") {
+      setNotice("Checkout was cancelled. You have not been charged by this return alone.");
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -504,6 +792,13 @@ export default function AccountPage() {
     );
   }
 
+  const billingPrice = getBillingPrice(billing);
+  const subscription = billing.subscription;
+  const subscriptionStatus = String(subscription?.status || "").toLowerCase();
+  const isPastDue = ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(
+    subscriptionStatus
+  );
+
   return (
     <main className="fa-shell">
       <div className="fa-orb fa-orb-one" />
@@ -527,6 +822,7 @@ export default function AccountPage() {
           <button
             className="fa-button fa-secondary fa-small"
             onClick={signOut}
+            disabled={busy}
           >
             Sign out <span aria-hidden="true">↗</span>
           </button>
@@ -545,8 +841,8 @@ export default function AccountPage() {
           </h1>
 
           <p>
-            Manage your identity, protect your account, and keep track of
-            where you're signed in.
+            Manage your identity, billing, security, and the devices
+            connected to your Fades account.
           </p>
         </div>
 
@@ -599,10 +895,7 @@ export default function AccountPage() {
                 className={`fa-nav-item ${
                   activeSection === item.id ? "is-active" : ""
                 } ${item.id === "danger" ? "is-danger" : ""}`}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  setNotice("");
-                }}
+                onClick={() => navigateToSection(item.id)}
               >
                 <span className="fa-nav-icon">{item.icon}</span>
 
@@ -668,7 +961,10 @@ export default function AccountPage() {
                         value={profile.name}
                         maxLength={50}
                         onChange={(e) =>
-                          setProfile({ ...profile, name: e.target.value })
+                          setProfile((current) => ({
+                            ...current,
+                            name: e.target.value,
+                          }))
                         }
                         placeholder="How people see you"
                       />
@@ -683,10 +979,10 @@ export default function AccountPage() {
                           value={profile.username}
                           maxLength={24}
                           onChange={(e) =>
-                            setProfile({
-                              ...profile,
+                            setProfile((current) => ({
+                              ...current,
                               username: e.target.value,
-                            })
+                            }))
                           }
                           placeholder="yourname"
                         />
@@ -703,7 +999,10 @@ export default function AccountPage() {
                         type="email"
                         value={profile.email}
                         onChange={(e) =>
-                          setProfile({ ...profile, email: e.target.value })
+                          setProfile((current) => ({
+                            ...current,
+                            email: e.target.value,
+                          }))
                         }
                         required
                       />
@@ -734,10 +1033,10 @@ export default function AccountPage() {
                           autoComplete="current-password"
                           value={profile.currentPassword}
                           onChange={(e) =>
-                            setProfile({
-                              ...profile,
+                            setProfile((current) => ({
+                              ...current,
                               currentPassword: e.target.value,
-                            })
+                            }))
                           }
                           required
                         />
@@ -750,7 +1049,10 @@ export default function AccountPage() {
                         type="url"
                         value={profile.avatar}
                         onChange={(e) =>
-                          setProfile({ ...profile, avatar: e.target.value })
+                          setProfile((current) => ({
+                            ...current,
+                            avatar: e.target.value,
+                          }))
                         }
                         placeholder="https://example.com/avatar.png"
                       />
@@ -766,7 +1068,10 @@ export default function AccountPage() {
                         maxLength={200}
                         rows={3}
                         onChange={(e) =>
-                          setProfile({ ...profile, bio: e.target.value })
+                          setProfile((current) => ({
+                            ...current,
+                            bio: e.target.value,
+                          }))
                         }
                         placeholder="A little about you…"
                       />
@@ -807,10 +1112,7 @@ export default function AccountPage() {
                       Send verification code
                     </button>
 
-                    <form
-                      className="fa-verify-form"
-                      onSubmit={verifyEmail}
-                    >
+                    <form className="fa-verify-form" onSubmit={verifyEmail}>
                       <input
                         value={verifyCode}
                         inputMode="numeric"
@@ -845,11 +1147,463 @@ export default function AccountPage() {
 
                 <div className="fa-info-right">
                   <span>MEMBER SINCE</span>
-                  <strong>
-                    {formatDate(user?.createdAt).split(",").slice(0, 1).join(",")}
-                  </strong>
+                  <strong>{formatShortDate(user?.createdAt)}</strong>
                 </div>
               </div>
+            </>
+          )}
+
+          {activeSection === "billing" && (
+            <>
+              <div className="fa-section-heading">
+                <div>
+                  <div className="fa-kicker">SUBSCRIPTION & PAYMENTS</div>
+                  <h2>Billing</h2>
+                  <p>
+                    Manage your Fades plan, payment methods, invoices,
+                    and subscription.
+                  </p>
+                </div>
+
+                <span className="fa-section-symbol">$</span>
+              </div>
+
+              {billing.loading && (
+                <div className="fa-card fa-billing-loading">
+                  <span className="fa-spinner" />
+                  Loading your billing information…
+                </div>
+              )}
+
+              {!billing.loading && billing.error && (
+                <div className="fa-card fa-billing-unavailable">
+                  <div className="fa-inline-icon fa-icon-warn">!</div>
+
+                  <div className="fa-flex-grow">
+                    <h3>Billing information unavailable</h3>
+                    <p>{billing.error}</p>
+                    <p>
+                      Your account and security settings are still
+                      available. Check that your billing API is configured.
+                    </p>
+
+                    <button
+                      className="fa-button fa-secondary"
+                      onClick={refreshBilling}
+                      disabled={busy}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!billing.loading && billing.available && (
+                <>
+                  <div className="fa-card fa-billing-hero">
+                    <div className="fa-billing-hero-top">
+                      <div>
+                        <div className="fa-kicker">YOUR CURRENT PLAN</div>
+
+                        <h3>
+                          {billing.plan?.name ||
+                            subscription?.planName ||
+                            (subscription ? "Fades subscription" : "Fades Free")}
+                        </h3>
+
+                        <p>
+                          {subscription
+                            ? `Subscription status: ${getSubscriptionStatus(
+                                subscription
+                              )}`
+                            : "You are currently on the free plan."}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`fa-pill ${
+                          isSubscriptionActive(subscription)
+                            ? "fa-pill-green"
+                            : ""
+                        }`}
+                      >
+                        {getSubscriptionStatus(subscription)}
+                      </span>
+                    </div>
+
+                    <div className="fa-billing-price">
+                      {billingPrice ? (
+                        <>
+                          <strong>
+                            {formatMoney(
+                              billingPrice.amount,
+                              billingPrice.currency
+                            )}
+                          </strong>
+
+                          <span>
+                            {billingPrice.interval
+                              ? `/ ${billingPrice.interval}`
+                              : "per billing period"}
+                          </span>
+                        </>
+                      ) : (
+                        <strong>
+                          {subscription ? "Paid subscription" : "$0"}
+                        </strong>
+                      )}
+                    </div>
+
+                    <div className="fa-billing-summary-grid">
+                      <div>
+                        <span>Next renewal / period end</span>
+                        <strong>
+                          {formatDate(
+                            subscription?.currentPeriodEnd ||
+                              subscription?.current_period_end
+                          )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Subscription started</span>
+                        <strong>
+                          {formatDate(
+                            subscription?.createdAt ||
+                              subscription?.created
+                          )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Billing interval</span>
+                        <strong>
+                          {titleCase(
+                            subscription?.interval ||
+                              billing.plan?.interval
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {subscription?.cancelAtPeriodEnd && (
+                      <div className="fa-billing-alert">
+                        Your subscription is scheduled to end at the end
+                        of the current billing period.
+                      </div>
+                    )}
+
+                    {isPastDue && (
+                      <div className="fa-billing-alert">
+                        Your subscription needs attention. Open the
+                        Stripe billing portal to review your payment
+                        details.
+                      </div>
+                    )}
+
+                    <div className="fa-billing-actions">
+                      <button
+                        className="fa-button fa-primary"
+                        onClick={
+                          subscription
+                            ? openBillingPortal
+                            : startCheckout
+                        }
+                        disabled={busy}
+                      >
+                        {busy
+                          ? "Please wait…"
+                          : subscription
+                            ? "Manage subscription"
+                            : "Upgrade your plan"}
+                        <span>↗</span>
+                      </button>
+
+                      {subscription && (
+                        <button
+                          className="fa-button fa-secondary"
+                          onClick={openBillingPortal}
+                          disabled={busy}
+                        >
+                          Payment & invoices
+                        </button>
+                      )}
+
+                      <button
+                        className="fa-button fa-secondary"
+                        onClick={refreshBilling}
+                        disabled={busy}
+                      >
+                        ↻ Refresh
+                      </button>
+                    </div>
+
+                    <p className="fa-billing-footnote">
+                      Subscription status is provided by your Fades
+                      billing API and should be synchronized with Stripe.
+                    </p>
+                  </div>
+
+                  <div className="fa-card">
+                    <div className="fa-card-heading">
+                      <div>
+                        <h3>Payment method</h3>
+                        <p>
+                          Review and update the payment method associated
+                          with your subscription.
+                        </p>
+                      </div>
+
+                      <span className="fa-mini-symbol">◇</span>
+                    </div>
+
+                    {billing.paymentMethod ? (
+                      <div className="fa-payment-method">
+                        <div className="fa-payment-icon">▰</div>
+
+                        <div className="fa-flex-grow">
+                          <strong>
+                            {titleCase(
+                              billing.paymentMethod.brand || "Card"
+                            )}
+                            {billing.paymentMethod.last4
+                              ? ` ending in ${billing.paymentMethod.last4}`
+                              : ""}
+                          </strong>
+
+                          <small>
+                            {billing.paymentMethod.expMonth &&
+                            billing.paymentMethod.expYear
+                              ? `Expires ${String(
+                                  billing.paymentMethod.expMonth
+                                ).padStart(2, "0")}/${
+                                  billing.paymentMethod.expYear
+                                }`
+                              : "Payment details are managed securely by Stripe."}
+                          </small>
+                        </div>
+
+                        <button
+                          className="fa-button fa-secondary"
+                          onClick={openBillingPortal}
+                          disabled={busy || !subscription}
+                        >
+                          Update
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="fa-empty">
+                        <span>◇</span>
+                        <h3>No payment method available</h3>
+                        <p>
+                          If you have a paid subscription, open the
+                          billing portal to manage your payment details.
+                        </p>
+
+                        {subscription && (
+                          <button
+                            className="fa-button fa-secondary"
+                            onClick={openBillingPortal}
+                            disabled={busy}
+                          >
+                            Open billing portal
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="fa-card">
+                    <div className="fa-card-heading">
+                      <div>
+                        <h3>Billing details</h3>
+                        <p>
+                          Billing information returned by your Fades API.
+                        </p>
+                      </div>
+                    </div>
+
+                    {billing.billingDetails ? (
+                      <div className="fa-billing-details">
+                        <div>
+                          <span>Billing name</span>
+                          <strong>
+                            {billing.billingDetails.name || "Not provided"}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Billing email</span>
+                          <strong>
+                            {billing.billingDetails.email || "Not provided"}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Country</span>
+                          <strong>
+                            {billing.billingDetails.country || "Not provided"}
+                          </strong>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="fa-billing-muted">
+                        No separate billing profile was returned by the
+                        API. Manage available billing details in Stripe's
+                        customer portal.
+                      </p>
+                    )}
+
+                    <div className="fa-form-footer">
+                      <span>Securely managed by Stripe.</span>
+
+                      <button
+                        className="fa-button fa-secondary"
+                        onClick={openBillingPortal}
+                        disabled={busy || !subscription}
+                      >
+                        Edit billing details
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="fa-card fa-invoices-card">
+                    <div className="fa-card-heading">
+                      <div>
+                        <h3>Invoices & payment history</h3>
+                        <p>
+                          Review invoices made available by your billing API.
+                        </p>
+                      </div>
+
+                      <span className="fa-mini-symbol">▤</span>
+                    </div>
+
+                    {billing.invoices.length === 0 ? (
+                      <div className="fa-empty">
+                        <span>▤</span>
+                        <h3>No invoices available</h3>
+                        <p>
+                          Your invoices will appear here when the billing
+                          API returns them.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="fa-invoice-list">
+                        {billing.invoices.map((invoice) => {
+                          const invoiceUrl = safeExternalUrl(
+                            invoice.hostedInvoiceUrl ||
+                              invoice.hosted_invoice_url
+                          );
+
+                          const invoicePdfUrl = safeExternalUrl(
+                            invoice.invoicePdf ||
+                              invoice.invoice_pdf
+                          );
+
+                          const amount =
+                            invoice.amountPaid ??
+                            invoice.amount_paid ??
+                            invoice.total ??
+                            invoice.amount;
+
+                          return (
+                            <div
+                              className="fa-invoice-row"
+                              key={invoice.id}
+                            >
+                              <div className="fa-invoice-icon">▤</div>
+
+                              <div className="fa-flex-grow">
+                                <strong>
+                                  {invoice.number ||
+                                    invoice.description ||
+                                    `Invoice ${invoice.id}`}
+                                </strong>
+
+                                <small>
+                                  {formatDate(
+                                    invoice.createdAt ||
+                                      invoice.created_at ||
+                                      invoice.created
+                                  )}
+                                </small>
+                              </div>
+
+                              <div className="fa-invoice-amount">
+                                <strong>
+                                  {formatMoney(
+                                    amount,
+                                    invoice.currency || "CAD"
+                                  )}
+                                </strong>
+
+                                <span
+                                  className={`fa-pill ${
+                                    String(invoice.status).toLowerCase() ===
+                                    "paid"
+                                      ? "fa-pill-green"
+                                      : ""
+                                  }`}
+                                >
+                                  {titleCase(invoice.status)}
+                                </span>
+                              </div>
+
+                              {(invoiceUrl || invoicePdfUrl) && (
+                                <a
+                                  className="fa-button fa-secondary"
+                                  href={invoiceUrl || invoicePdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {invoiceUrl ? "View invoice" : "PDF"}
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="fa-form-footer">
+                      <span>
+                        Invoice history depends on your billing API.
+                      </span>
+
+                      <button
+                        className="fa-button fa-secondary"
+                        onClick={openBillingPortal}
+                        disabled={busy || !subscription}
+                      >
+                        Open Stripe portal
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="fa-card fa-billing-help">
+                    <div className="fa-inline-icon">✦</div>
+
+                    <div className="fa-flex-grow">
+                      <h3>Need help with billing?</h3>
+                      <p>
+                        If a payment failed, a subscription looks
+                        incorrect, or you need help with an invoice,
+                        contact Fades support.
+                      </p>
+
+                      <a
+                        className="fa-button fa-secondary"
+                        href="https://help.fades.lol"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Contact support <span>↗</span>
+                      </a>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -909,10 +1663,10 @@ export default function AccountPage() {
                         autoComplete="current-password"
                         value={passwordForm.currentPassword}
                         onChange={(e) =>
-                          setPasswordForm({
-                            ...passwordForm,
+                          setPasswordForm((current) => ({
+                            ...current,
                             currentPassword: e.target.value,
-                          })
+                          }))
                         }
                         required
                       />
@@ -927,10 +1681,10 @@ export default function AccountPage() {
                         maxLength={200}
                         value={passwordForm.newPassword}
                         onChange={(e) =>
-                          setPasswordForm({
-                            ...passwordForm,
+                          setPasswordForm((current) => ({
+                            ...current,
                             newPassword: e.target.value,
-                          })
+                          }))
                         }
                         required
                       />
@@ -944,10 +1698,10 @@ export default function AccountPage() {
                         autoComplete="new-password"
                         value={passwordForm.confirmPassword}
                         onChange={(e) =>
-                          setPasswordForm({
-                            ...passwordForm,
+                          setPasswordForm((current) => ({
+                            ...current,
                             confirmPassword: e.target.value,
-                          })
+                          }))
                         }
                         required
                       />
@@ -959,10 +1713,10 @@ export default function AccountPage() {
                       type="checkbox"
                       checked={passwordForm.signOutOthers}
                       onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
+                        setPasswordForm((current) => ({
+                          ...current,
                           signOutOthers: e.target.checked,
-                        })
+                        }))
                       }
                     />
 
@@ -1055,7 +1809,9 @@ export default function AccountPage() {
                       this setup key manually.
                     </p>
 
-                    <code className="fa-secret">{twofa.setup.secret}</code>
+                    <code className="fa-secret">
+                      {twofa.setup.secret}
+                    </code>
 
                     <label className="fa-field">
                       <span>6-digit authenticator code</span>
@@ -1065,10 +1821,10 @@ export default function AccountPage() {
                         maxLength={6}
                         value={twofa.code}
                         onChange={(e) =>
-                          setTwofa({
-                            ...twofa,
+                          setTwofa((current) => ({
+                            ...current,
                             code: e.target.value.replace(/\D/g, ""),
-                          })
+                          }))
                         }
                         required
                       />
@@ -1079,11 +1835,11 @@ export default function AccountPage() {
                         type="button"
                         className="fa-button fa-secondary"
                         onClick={() =>
-                          setTwofa({
-                            ...twofa,
+                          setTwofa((current) => ({
+                            ...current,
                             setup: null,
                             code: "",
-                          })
+                          }))
                         }
                       >
                         Cancel
@@ -1121,12 +1877,13 @@ export default function AccountPage() {
                         </span>
                         <input
                           type="password"
+                          autoComplete="current-password"
                           value={twofa.password}
                           onChange={(e) =>
-                            setTwofa({
-                              ...twofa,
+                            setTwofa((current) => ({
+                              ...current,
                               password: e.target.value,
-                            })
+                            }))
                           }
                           required
                         />
@@ -1151,12 +1908,13 @@ export default function AccountPage() {
                           <span>Password</span>
                           <input
                             type="password"
+                            autoComplete="current-password"
                             value={twofa.password}
                             onChange={(e) =>
-                              setTwofa({
-                                ...twofa,
+                              setTwofa((current) => ({
+                                ...current,
                                 password: e.target.value,
-                              })
+                              }))
                             }
                             required
                           />
@@ -1167,10 +1925,10 @@ export default function AccountPage() {
                           <input
                             value={twofa.code}
                             onChange={(e) =>
-                              setTwofa({
-                                ...twofa,
+                              setTwofa((current) => ({
+                                ...current,
                                 code: e.target.value,
-                              })
+                              }))
                             }
                             required
                           />
@@ -1205,11 +1963,18 @@ export default function AccountPage() {
 
                     <button
                       className="fa-button fa-secondary"
-                      onClick={() =>
-                        navigator.clipboard?.writeText(
-                          twofa.backupCodes.join("\n")
-                        )
-                      }
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            twofa.backupCodes.join("\n")
+                          );
+                          setNotice("Backup codes copied.");
+                        } catch {
+                          setNotice(
+                            "Unable to copy automatically. Select and copy the codes manually."
+                          );
+                        }
+                      }}
                     >
                       Copy backup codes
                     </button>
@@ -1335,7 +2100,8 @@ export default function AccountPage() {
                   className="fa-button fa-danger-button"
                   onClick={revokeOtherSessions}
                   disabled={
-                    busy || sessions.filter((s) => !s.current).length === 0
+                    busy ||
+                    sessions.filter((session) => !session.current).length === 0
                   }
                 >
                   Sign out other devices
@@ -1465,7 +2231,9 @@ export default function AccountPage() {
                     account and associated data. This may include your
                     sessions, Fades Browser data, chats, connected app
                     grants, and OAuth apps you registered, as handled by
-                    the account API.
+                    the account API. Check your paid subscription separately
+                    before deletion unless your backend cancels it as part
+                    of account deletion.
                   </p>
                 </div>
               </div>
@@ -1482,9 +2250,7 @@ export default function AccountPage() {
                   <li>
                     <span>×</span>
                     <div>
-                      <strong>
-                        You may lose access to Fades services
-                      </strong>
+                      <strong>You may lose access to Fades services</strong>
                       <small>
                         Your Fades identity will no longer be available to
                         sign in with.
