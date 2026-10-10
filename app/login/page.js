@@ -5,41 +5,41 @@ import { useSearchParams } from "next/navigation";
 import "./login.css";
 
 /*
- * =========================================================
- * FADES LOGIN  →  app/login/page.js   (served at fades.lol/login)
- * =========================================================
- * Uses the auth API (cookie session):
- *   GET  /auth/me                   → current user (401 when signed out)
- *   POST /auth/login                → { email, password, code? }
- *        401 TWOFA_REQUIRED         → ask for the authenticator / backup code
- *        403 EMAIL_NOT_VERIFIED     → ask for the emailed 6-digit code
- *   POST /auth/signup               → { username, email, password }
- *        201 requiresEmailVerification
- *   POST /auth/verify-email         → { email, code }  (sets the session)
- *   POST /auth/resend-verification  → { email }
- *   POST /auth/logout
- *   POST /auth/browser/link         → { code }
- *
- * Query params:
- *   ?from=browser   shows the "you can close this tab" screen
- *   ?next=/chat     where to go after login (default "/")
- *   ?code=<32 hex>  sign-in handoff from Fades Browser. After login the
- *                   page asks "Connect Fades Browser?" and, on confirm,
- *                   POSTs /auth/browser/link { code } so the browser can
- *                   claim its own token (no shared cookies needed).
- *
- * Styles live in ./login.css
- * =========================================================
- */
+=========================================================
+FADES LOGIN
+=========================================================
+
+Auth API:
+  GET  /auth/me
+  POST /auth/login
+  POST /auth/signup
+  POST /auth/verify-email
+  POST /auth/resend-verification
+  POST /auth/forgot-password
+  POST /auth/reset-password
+  POST /auth/logout
+  POST /auth/browser/link
+
+Password recovery:
+  1. User enters their email.
+  2. POST /auth/forgot-password sends a reset code.
+  3. User enters the code and a new password.
+  4. POST /auth/reset-password resets the password.
+  5. User returns to sign in.
+
+=========================================================
+*/
 
 const AUTH_API = "https://api.fades.lol/auth";
 const LOGO = "/logo.png";
 const CODE_RE = /^[a-f0-9]{32}$/;
 const RESEND_COOLDOWN_S = 60;
 const OTP_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 1024;
 
 /* ---------------------------------------------------------
-   Background decoration (deterministic so SSR === client)
+   Background decoration
    --------------------------------------------------------- */
 
 function seeded(seed) {
@@ -47,7 +47,6 @@ function seeded(seed) {
 
   return () => {
     state = (state * 1664525 + 1013904223) % 4294967296;
-
     return state / 4294967296;
   };
 }
@@ -123,30 +122,53 @@ function Background() {
    Helpers
    --------------------------------------------------------- */
 
-/* short code shown on both sides so the user can confirm they match */
 function formatUserCode(code) {
   const text = code.slice(0, 8).toUpperCase();
-
   return `${text.slice(0, 4)}-${text.slice(4)}`;
 }
 
 function buildBody(mode, { username, email, password }) {
   return mode === "signup"
-    ? { username: username.trim(), email: email.trim(), password }
-    : { email: email.trim(), password };
+    ? {
+        username: username.trim(),
+        email: email.trim(),
+        password,
+      }
+    : {
+        email: email.trim(),
+        password,
+      };
 }
 
 function passwordStrength(password) {
   if (!password) return { score: 0, label: "" };
-  if (password.length < 8) return { score: 0, label: "Too short" };
+
+  if (password.length < 8) {
+    return { score: 0, label: "Too short" };
+  }
 
   let score = 1;
 
   if (password.length >= 12) score += 1;
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
-  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
 
-  return { score, label: ["Too short", "Weak", "Okay", "Good", "Strong"][score] };
+  if (
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password)
+  ) {
+    score += 1;
+  }
+
+  if (
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  ) {
+    score += 1;
+  }
+
+  return {
+    score,
+    label: ["Too short", "Weak", "Okay", "Good", "Strong"][score],
+  };
 }
 
 async function authFetch(path, options = {}) {
@@ -155,7 +177,10 @@ async function authFetch(path, options = {}) {
     ...options,
     headers: {
       Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.body
+        ? { "Content-Type": "application/json" }
+        : {}),
+      ...options.headers,
     },
   });
 
@@ -170,7 +195,7 @@ async function authFetch(path, options = {}) {
     );
 
     error.status = response.status;
-    error.data = data; // lets callers read requiresTwoFactor, requiresEmailVerification, ...
+    error.data = data;
 
     throw error;
   }
@@ -179,7 +204,11 @@ async function authFetch(path, options = {}) {
 }
 
 function Avatar({ user }) {
-  const src = user && typeof user.avatar === "string" ? user.avatar : "";
+  const src =
+    user && typeof user.avatar === "string"
+      ? user.avatar
+      : "";
+
   const initial = String(
     (user && (user.username || user.name || user.email)) || "F"
   )
@@ -187,10 +216,22 @@ function Avatar({ user }) {
     .toUpperCase();
 
   if (/^https:\/\//i.test(src)) {
-    return <img className="fl-avatar" src={src} alt="" width="72" height="72" />;
+    return (
+      <img
+        className="fl-avatar"
+        src={src}
+        alt=""
+        width="72"
+        height="72"
+      />
+    );
   }
 
-  return <div className="fl-avatar fl-avatar-fallback">{initial}</div>;
+  return (
+    <div className="fl-avatar fl-avatar-fallback">
+      {initial}
+    </div>
+  );
 }
 
 function CheckIcon() {
@@ -207,20 +248,37 @@ function Spinner() {
   return <span className="fl-btn-spin" aria-hidden="true" />;
 }
 
-/* Six separate boxes: typing, paste, backspace and arrow keys all work. */
-function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
+/* ---------------------------------------------------------
+   Six-digit OTP input
+   --------------------------------------------------------- */
+
+function OtpInput({
+  value,
+  onChange,
+  onComplete,
+  disabled,
+  invalid,
+}) {
   const refs = useRef([]);
-  const digits = Array.from({ length: OTP_LENGTH }, (_, i) => value[i] || "");
+
+  const digits = Array.from(
+    { length: OTP_LENGTH },
+    (_, index) => value[index] || ""
+  );
 
   const focusAt = (index) => {
-    const node = refs.current[Math.max(0, Math.min(OTP_LENGTH - 1, index))];
+    const node =
+      refs.current[
+        Math.max(0, Math.min(OTP_LENGTH - 1, index))
+      ];
 
     if (node) node.focus();
   };
 
-  /* focus the first box on mount and whenever the value is cleared */
   useEffect(() => {
-    if (value === "" && !disabled) focusAt(0);
+    if (value === "" && !disabled) {
+      focusAt(0);
+    }
   }, [value, disabled]);
 
   const apply = (startIndex, raw) => {
@@ -230,30 +288,37 @@ function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
 
     const next = [...digits];
 
-    for (let k = 0; k < clean.length && startIndex + k < OTP_LENGTH; k += 1) {
-      next[startIndex + k] = clean[k];
+    for (
+      let index = 0;
+      index < clean.length && startIndex + index < OTP_LENGTH;
+      index += 1
+    ) {
+      next[startIndex + index] = clean[index];
     }
 
     const joined = next.join("");
 
     onChange(joined);
-    focusAt(startIndex + clean.length);
 
-    if (joined.length === OTP_LENGTH) onComplete(joined);
+    focusAt(
+      Math.min(startIndex + clean.length, OTP_LENGTH - 1)
+    );
+
+    if (joined.length === OTP_LENGTH) {
+      onComplete?.(joined);
+    }
   };
 
   const onKeyDown = (index, event) => {
     if (event.key === "Backspace") {
       event.preventDefault();
 
-      if (digits[index]) {
-        const next = [...digits];
+      const next = [...digits];
 
+      if (digits[index]) {
         next[index] = "";
         onChange(next.join(""));
       } else if (index > 0) {
-        const next = [...digits];
-
         next[index - 1] = "";
         onChange(next.join(""));
         focusAt(index - 1);
@@ -268,7 +333,11 @@ function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
   };
 
   return (
-    <div className={`fl-otp-row${invalid ? " is-invalid" : ""}`} role="group" aria-label="6-digit code">
+    <div
+      className={`fl-otp-row${invalid ? " is-invalid" : ""}`}
+      role="group"
+      aria-label="6-digit code"
+    >
       {digits.map((digit, index) => (
         <input
           key={index}
@@ -282,8 +351,12 @@ function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
           maxLength={1}
           disabled={disabled}
           aria-label={`Digit ${index + 1}`}
-          onChange={(event) => apply(index, event.target.value)}
-          onKeyDown={(event) => onKeyDown(index, event)}
+          onChange={(event) =>
+            apply(index, event.target.value)
+          }
+          onKeyDown={(event) =>
+            onKeyDown(index, event)
+          }
           onFocus={(event) => event.target.select()}
           onPaste={(event) => {
             event.preventDefault();
@@ -301,45 +374,75 @@ function OtpInput({ value, onChange, onComplete, disabled, invalid }) {
 
 function LoginForm() {
   const params = useSearchParams();
+
   const fromBrowser = params.get("from") === "browser";
   const rawNext = params.get("next") || "/";
-  // only allow same-site relative redirects
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+
+  const next =
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//")
+      ? rawNext
+      : "/";
+
   const rawCode = params.get("code") || "";
   const code = CODE_RE.test(rawCode) ? rawCode : "";
 
   const [mode, setMode] = useState("login");
-  const [step, setStep] = useState("form"); // form | twofa | verify
-  const [form, setForm] = useState({ username: "", email: "", password: "" });
+
+  // form | twofa | verify | forgot | reset
+  const [step, setStep] = useState("form");
+
+  const [form, setForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+
   const [twofaCode, setTwofaCode] = useState("");
   const [useBackup, setUseBackup] = useState(false);
+
   const [verifyCode, setVerifyCode] = useState("");
+
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] =
+    useState("");
+
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
+
   const [capsOn, setCapsOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [shake, setShake] = useState(0);
   const [notice, setNotice] = useState("");
   const [cooldown, setCooldown] = useState(0);
+
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [link, setLink] = useState("idle"); // idle | linking | linked | cancelled
+
+  const [link, setLink] = useState("idle");
   const [linkError, setLinkError] = useState("");
 
-  const strength = passwordStrength(form.password);
+  const strength = passwordStrength(
+    step === "reset" ? newPassword : form.password
+  );
 
   const finish = (account) => {
     setUser(account);
 
-    if (!fromBrowser && !code) window.location.assign(next);
+    if (!fromBrowser && !code) {
+      window.location.assign(next);
+    }
   };
 
   const showCodeError = (message) => {
     setError(message);
-    setShake((n) => n + 1);
+    setShake((value) => value + 1);
   };
 
-  /* soft spotlight that follows the pointer */
   const onPointerMove = (event) => {
     const node = event.currentTarget;
 
@@ -360,6 +463,7 @@ function LoginForm() {
       setLink("linked");
     } catch (linkFailure) {
       setLink("idle");
+
       setLinkError(
         linkFailure.status === undefined
           ? "Can't reach Fades right now. Try again."
@@ -368,7 +472,7 @@ function LoginForm() {
     }
   };
 
-  /* already signed in? */
+  /* Already signed in? */
   useEffect(() => {
     let cancelled = false;
 
@@ -376,44 +480,236 @@ function LoginForm() {
       .then((data) => {
         const account = data && (data.user || data);
 
-        if (!cancelled && account && (account.id || account.username || account.email)) {
+        if (
+          !cancelled &&
+          account &&
+          (account.id || account.username || account.email)
+        ) {
           setUser(account);
         }
       })
       .catch(() => {})
-      .finally(() => !cancelled && setChecking(false));
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  /* resend countdown */
+  /* Shared resend countdown */
   useEffect(() => {
     if (cooldown <= 0) return undefined;
 
-    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    const timer = setTimeout(
+      () => setCooldown((value) => value - 1),
+      1000
+    );
 
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
+  const set = (key) => (event) => {
+    setForm((value) => ({
+      ...value,
+      [key]: event.target.value,
+    }));
+  };
 
   const resetToForm = () => {
     setStep("form");
     setTwofaCode("");
     setUseBackup(false);
     setVerifyCode("");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmNewPassword("");
     setError("");
     setNotice("");
+    setBusy(false);
   };
 
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setError("");
+    setNotice("");
   };
 
-  /* ---------- email verification ---------- */
+  const openForgotPassword = () => {
+    setStep("forgot");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setError("");
+    setNotice("");
+  };
+
+  /* -------------------------------------------------------
+     FORGOT PASSWORD: REQUEST RESET CODE
+     POST /auth/forgot-password
+     ------------------------------------------------------- */
+
+  const submitForgotPassword = async (event) => {
+    event.preventDefault();
+
+    if (busy) return;
+
+    setError("");
+    setNotice("");
+
+    const email = form.email.trim();
+
+    if (
+      !email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      await authFetch("/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+
+      setStep("reset");
+      setResetCode("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setCooldown(RESEND_COOLDOWN_S);
+
+      setNotice(
+        "If an account exists with that email, password reset instructions will be sent. Check your inbox."
+      );
+    } catch (requestError) {
+      setError(
+        requestError.status === undefined
+          ? "Can't reach Fades right now. Check your connection and try again."
+          : requestError.message
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* -------------------------------------------------------
+     FORGOT PASSWORD: RESEND CODE
+     ------------------------------------------------------- */
+
+  const resendPasswordReset = async () => {
+    if (busy || cooldown > 0) return;
+
+    setError("");
+    setNotice("");
+    setBusy(true);
+
+    try {
+      await authFetch("/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: form.email.trim(),
+        }),
+      });
+
+      setCooldown(RESEND_COOLDOWN_S);
+
+      setNotice(
+        "If an account exists with that email, a reset code will be sent."
+      );
+    } catch (requestError) {
+      setError(
+        requestError.status === undefined
+          ? "Can't reach Fades right now. Check your connection and try again."
+          : requestError.message
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* -------------------------------------------------------
+     RESET PASSWORD
+     POST /auth/reset-password
+     ------------------------------------------------------- */
+
+  const submitResetPassword = async (event) => {
+    event.preventDefault();
+
+    if (busy) return;
+
+    setError("");
+    setNotice("");
+
+    if (!/^\d{6}$/.test(resetCode)) {
+      setError("Enter the 6-digit password reset code.");
+      return;
+    }
+
+    if (
+      newPassword.length < MIN_PASSWORD_LENGTH ||
+      newPassword.length > MAX_PASSWORD_LENGTH
+    ) {
+      setError(
+        `Your new password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`
+      );
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setError("Your passwords do not match.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      await authFetch("/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: form.email.trim(),
+          code: resetCode,
+          newPassword,
+        }),
+      });
+
+      setStep("form");
+      setMode("login");
+
+      setForm((value) => ({
+        ...value,
+        password: "",
+      }));
+
+      setResetCode("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+
+      setError("");
+      setNotice(
+        "Password reset successfully. Sign in with your new password."
+      );
+
+      setShowPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    } catch (resetError) {
+      setError(
+        resetError.status === undefined
+          ? "Can't reach Fades right now. Check your connection and try again."
+          : resetError.message
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* -------------------------------------------------------
+     EMAIL VERIFICATION
+     ------------------------------------------------------- */
 
   const sendCode = async (email, { auto = false } = {}) => {
     setError("");
@@ -421,14 +717,18 @@ function LoginForm() {
     try {
       await authFetch("/resend-verification", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({
+          email: email.trim(),
+        }),
       });
 
-      setNotice(`We sent a 6-digit code to ${email.trim()}.`);
+      setNotice(
+        `We sent a 6-digit code to ${email.trim()}.`
+      );
+
       setCooldown(RESEND_COOLDOWN_S);
     } catch (sendError) {
       if (auto) {
-        // a code may already be active (e.g. just sent at signup) – don't alarm the user
         setNotice(sendError.message);
       } else {
         setError(
@@ -446,8 +746,9 @@ function LoginForm() {
     setError("");
 
     if (!/^\d{6}$/.test(value)) {
-      showCodeError("Enter the 6-digit code from your email.");
-
+      showCodeError(
+        "Enter the 6-digit code from your email."
+      );
       return;
     }
 
@@ -456,12 +757,16 @@ function LoginForm() {
     try {
       const data = await authFetch("/verify-email", {
         method: "POST",
-        body: JSON.stringify({ email: form.email.trim(), code: value }),
+        body: JSON.stringify({
+          email: form.email.trim(),
+          code: value,
+        }),
       });
 
       finish((data && data.user) || {});
     } catch (verifyError) {
       setVerifyCode("");
+
       showCodeError(
         verifyError.status === undefined
           ? "Can't reach Fades right now. Check your connection and try again."
@@ -472,7 +777,9 @@ function LoginForm() {
     }
   };
 
-  /* ---------- sign in / sign up ---------- */
+  /* -------------------------------------------------------
+     SIGN IN / SIGN UP
+     ------------------------------------------------------- */
 
   const submit = async (event) => {
     event.preventDefault();
@@ -484,20 +791,17 @@ function LoginForm() {
 
     if (!form.email.trim() || !form.password) {
       setError("Enter your email and password.");
-
       return;
     }
 
     if (mode === "signup") {
       if (!form.username.trim()) {
         setError("Pick a username.");
-
         return;
       }
 
-      if (form.password.length < 8) {
+      if (form.password.length < MIN_PASSWORD_LENGTH) {
         setError("Password must be at least 8 characters.");
-
         return;
       }
     }
@@ -505,27 +809,33 @@ function LoginForm() {
     setBusy(true);
 
     try {
-      const data = await authFetch(mode === "signup" ? "/signup" : "/login", {
-        method: "POST",
-        body: JSON.stringify(buildBody(mode, form)),
-      });
+      const data = await authFetch(
+        mode === "signup" ? "/signup" : "/login",
+        {
+          method: "POST",
+          body: JSON.stringify(buildBody(mode, form)),
+        }
+      );
 
-      // new accounts must verify their email before they get a session
       if (data && data.requiresEmailVerification) {
         setVerifyCode("");
         setStep("verify");
-        setNotice(`We sent a 6-digit code to ${form.email.trim()}.`);
-        setCooldown(RESEND_COOLDOWN_S);
 
+        setNotice(
+          `We sent a 6-digit code to ${form.email.trim()}.`
+        );
+
+        setCooldown(RESEND_COOLDOWN_S);
         return;
       }
 
-      // some APIs return the user, some only set the cookie – confirm with /me
-      let account = data && (data.user || (data.id || data.username ? data : null));
+      let account =
+        data &&
+        (data.user ||
+          (data.id || data.username ? data : null));
 
       if (!account) {
         const me = await authFetch("/me");
-
         account = me && (me.user || me);
       }
 
@@ -533,16 +843,24 @@ function LoginForm() {
     } catch (submitError) {
       const data = submitError.data;
 
-      if (data && data.requiresTwoFactor && data.error === "TWOFA_REQUIRED") {
+      if (
+        data &&
+        data.requiresTwoFactor &&
+        data.error === "TWOFA_REQUIRED"
+      ) {
         setTwofaCode("");
         setUseBackup(false);
         setStep("twofa");
-      } else if (submitError.status === 403 && data && data.requiresEmailVerification) {
+      } else if (
+        submitError.status === 403 &&
+        data &&
+        data.requiresEmailVerification
+      ) {
         setVerifyCode("");
         setStep("verify");
         setBusy(false);
-        await sendCode(form.email, { auto: true });
 
+        await sendCode(form.email, { auto: true });
         return;
       } else {
         setError(
@@ -556,7 +874,9 @@ function LoginForm() {
     }
   };
 
-  /* ---------- two-step verification ---------- */
+  /* -------------------------------------------------------
+     TWO-STEP VERIFICATION
+     ------------------------------------------------------- */
 
   const submitTwofa = async (value) => {
     if (busy) return;
@@ -566,8 +886,9 @@ function LoginForm() {
     const cleaned = String(value || "").trim();
 
     if (!cleaned) {
-      showCodeError("Enter your 6-digit code or a backup code.");
-
+      showCodeError(
+        "Enter your 6-digit code or a backup code."
+      );
       return;
     }
 
@@ -576,20 +897,23 @@ function LoginForm() {
     try {
       const data = await authFetch("/login", {
         method: "POST",
-        body: JSON.stringify({ ...buildBody("login", form), code: cleaned }),
+        body: JSON.stringify({
+          ...buildBody("login", form),
+          code: cleaned,
+        }),
       });
 
       let account = data && data.user;
 
       if (!account) {
         const me = await authFetch("/me");
-
         account = me && (me.user || me);
       }
 
       finish(account || {});
     } catch (twofaError) {
       setTwofaCode("");
+
       showCodeError(
         twofaError.status === undefined
           ? "Can't reach Fades right now. Check your connection and try again."
@@ -600,19 +924,34 @@ function LoginForm() {
     }
   };
 
+  /* -------------------------------------------------------
+     SIGN OUT
+     ------------------------------------------------------- */
+
   const signOut = async () => {
     try {
-      await authFetch("/logout", { method: "POST" });
+      await authFetch("/logout", {
+        method: "POST",
+      });
     } catch {}
 
     setUser(null);
     setLink("idle");
     setLinkError("");
     resetToForm();
-    setForm((f) => ({ ...f, password: "" }));
+
+    setForm((value) => ({
+      ...value,
+      password: "",
+    }));
   };
 
-  const name = user && (user.username || user.name || user.email || "your account");
+  const name =
+    user &&
+    (user.username ||
+      user.name ||
+      user.email ||
+      "your account");
 
   const stepKey = user
     ? `done-${link}`
@@ -621,14 +960,22 @@ function LoginForm() {
       : step;
 
   return (
-    <main className="fl-page" onPointerMove={onPointerMove}>
+    <main
+      className="fl-page"
+      onPointerMove={onPointerMove}
+    >
       <Background />
 
       <div className="fl-stack">
         <section className="fl-card">
           <div className="fl-brand">
             <span className="fl-logo">
-              <img src={LOGO} alt="" width="40" height="40" />
+              <img
+                src={LOGO}
+                alt=""
+                width="40"
+                height="40"
+              />
             </span>
 
             <strong>Fades</strong>
@@ -640,6 +987,10 @@ function LoginForm() {
             </div>
           ) : (
             <div className="fl-step" key={stepKey}>
+              {/* -------------------------------------------
+                  BROWSER CONNECTION
+                 ------------------------------------------- */}
+
               {user && code ? (
                 <div className="fl-done">
                   {link === "linked" ? (
@@ -649,15 +1000,19 @@ function LoginForm() {
                       <h1>Browser connected</h1>
 
                       <p>
-                        You're signed in. This tab will close on its own — if it
-                        doesn't, you can close it.
+                        You're signed in. This tab will close
+                        on its own — if it doesn't, you can
+                        close it.
                       </p>
                     </>
                   ) : link === "cancelled" ? (
                     <>
                       <h1>Not connected</h1>
 
-                      <p>Nothing was shared with the browser. You can close this tab.</p>
+                      <p>
+                        Nothing was shared with the browser.
+                        You can close this tab.
+                      </p>
                     </>
                   ) : (
                     <>
@@ -666,11 +1021,14 @@ function LoginForm() {
                       <h1>Connect Fades Browser?</h1>
 
                       <p>
-                        Signed in as <b>{name}</b>. Only continue if this code
-                        matches the one shown in your browser:
+                        Signed in as <b>{name}</b>. Only
+                        continue if this code matches the one
+                        shown in your browser:
                       </p>
 
-                      <div className="fl-code">{formatUserCode(code)}</div>
+                      <div className="fl-code">
+                        {formatUserCode(code)}
+                      </div>
 
                       {linkError && (
                         <div className="fl-error" role="alert">
@@ -693,14 +1051,20 @@ function LoginForm() {
                           )}
                         </button>
 
-                        <button className="fl-ghost" onClick={() => setLink("cancelled")}>
+                        <button
+                          className="fl-ghost"
+                          onClick={() => setLink("cancelled")}
+                        >
                           Cancel
                         </button>
                       </div>
 
                       <p className="fl-foot">
                         Not you?{" "}
-                        <button type="button" onClick={signOut}>
+                        <button
+                          type="button"
+                          onClick={signOut}
+                        >
                           Switch account
                         </button>
                       </p>
@@ -722,17 +1086,295 @@ function LoginForm() {
 
                   <div className="fl-actions">
                     {!fromBrowser && (
-                      <button className="fl-primary" onClick={() => window.location.assign(next)}>
+                      <button
+                        className="fl-primary"
+                        onClick={() =>
+                          window.location.assign(next)
+                        }
+                      >
                         Continue
                       </button>
                     )}
 
-                    <button className="fl-ghost" onClick={signOut}>
+                    <button
+                      className="fl-ghost"
+                      onClick={signOut}
+                    >
                       Switch account
                     </button>
                   </div>
                 </div>
+              ) : step === "forgot" ? (
+                /* -----------------------------------------
+                   FORGOT PASSWORD
+                   ----------------------------------------- */
+
+                <>
+                  <div className="fl-badge" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <rect
+                        x="5"
+                        y="10"
+                        width="14"
+                        height="11"
+                        rx="2"
+                      />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                      <path d="M12 14v3" />
+                    </svg>
+                  </div>
+
+                  <h1>Forgot your password?</h1>
+
+                  <p className="fl-sub">
+                    No worries. Enter the email address
+                    associated with your Fades account and
+                    we'll help you reset it.
+                  </p>
+
+                  <form
+                    onSubmit={submitForgotPassword}
+                    noValidate
+                  >
+                    <label>
+                      <span>Email address</span>
+
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={set("email")}
+                        autoComplete="email"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        placeholder="you@example.com"
+                        autoFocus
+                        required
+                      />
+                    </label>
+
+                    {error && (
+                      <div className="fl-error" role="alert">
+                        {error}
+                      </div>
+                    )}
+
+                    <button
+                      className="fl-primary"
+                      type="submit"
+                      disabled={busy}
+                    >
+                      {busy ? (
+                        <>
+                          <Spinner /> Sending code…
+                        </>
+                      ) : (
+                        "Send reset code"
+                      )}
+                    </button>
+                  </form>
+
+                  <p className="fl-foot fl-foot-tight">
+                    <button
+                      type="button"
+                      onClick={resetToForm}
+                    >
+                      ← Back to sign in
+                    </button>
+                  </p>
+                </>
+              ) : step === "reset" ? (
+                /* -----------------------------------------
+                   ENTER RESET CODE + NEW PASSWORD
+                   ----------------------------------------- */
+
+                <>
+                  <div className="fl-badge" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <rect
+                        x="5"
+                        y="10"
+                        width="14"
+                        height="11"
+                        rx="2"
+                      />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                      <path d="M12 14v3" />
+                    </svg>
+                  </div>
+
+                  <h1>Reset your password</h1>
+
+                  <p className="fl-sub">
+                    Enter the six-digit code sent to{" "}
+                    <b>{form.email.trim()}</b>, then choose
+                    a new password.
+                  </p>
+
+                  <form
+                    onSubmit={submitResetPassword}
+                    noValidate
+                  >
+                    <label>
+                      <span>6-digit reset code</span>
+
+                      <OtpInput
+                        key={`reset-${shake}`}
+                        value={resetCode}
+                        onChange={setResetCode}
+                        onComplete={() => {}}
+                        disabled={busy}
+                        invalid={Boolean(error)}
+                      />
+                    </label>
+
+                    <label>
+                      <span>New password</span>
+
+                      <div className="fl-password">
+                        <input
+                          type={
+                            showNewPassword
+                              ? "text"
+                              : "password"
+                          }
+                          value={newPassword}
+                          onChange={(event) =>
+                            setNewPassword(event.target.value)
+                          }
+                          autoComplete="new-password"
+                          placeholder="At least 8 characters"
+                          maxLength={MAX_PASSWORD_LENGTH}
+                          required
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowNewPassword((value) => !value)
+                          }
+                          aria-label={
+                            showNewPassword
+                              ? "Hide new password"
+                              : "Show new password"
+                          }
+                        >
+                          {showNewPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
+                    </label>
+
+                    {newPassword && (
+                      <div
+                        className="fl-strength"
+                        data-score={strength.score}
+                      >
+                        <div className="fl-strength-bars">
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </div>
+
+                        <span>{strength.label}</span>
+                      </div>
+                    )}
+
+                    <label>
+                      <span>Confirm new password</span>
+
+                      <div className="fl-password">
+                        <input
+                          type={
+                            showConfirmPassword
+                              ? "text"
+                              : "password"
+                          }
+                          value={confirmNewPassword}
+                          onChange={(event) =>
+                            setConfirmNewPassword(
+                              event.target.value
+                            )
+                          }
+                          autoComplete="new-password"
+                          placeholder="Enter your new password again"
+                          maxLength={MAX_PASSWORD_LENGTH}
+                          required
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword(
+                              (value) => !value
+                            )
+                          }
+                          aria-label={
+                            showConfirmPassword
+                              ? "Hide confirmation password"
+                              : "Show confirmation password"
+                          }
+                        >
+                          {showConfirmPassword
+                            ? "Hide"
+                            : "Show"}
+                        </button>
+                      </div>
+                    </label>
+
+                    {notice && (
+                      <div className="fl-notice" role="status">
+                        {notice}
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="fl-error" role="alert">
+                        {error}
+                      </div>
+                    )}
+
+                    <button
+                      className="fl-primary"
+                      type="submit"
+                      disabled={busy}
+                    >
+                      {busy ? (
+                        <>
+                          <Spinner /> Resetting password…
+                        </>
+                      ) : (
+                        "Reset password"
+                      )}
+                    </button>
+                  </form>
+
+                  <p className="fl-foot">
+                    Didn't receive a code?{" "}
+                    <button
+                      type="button"
+                      onClick={resendPasswordReset}
+                      disabled={busy || cooldown > 0}
+                    >
+                      {cooldown > 0
+                        ? `Resend in ${cooldown}s`
+                        : "Resend code"}
+                    </button>
+                  </p>
+
+                  <p className="fl-foot fl-foot-tight">
+                    <button
+                      type="button"
+                      onClick={resetToForm}
+                    >
+                      ← Back to sign in
+                    </button>
+                  </p>
+                </>
               ) : step === "twofa" ? (
+                /* -----------------------------------------
+                   TWO-FACTOR AUTHENTICATION
+                   ----------------------------------------- */
+
                 <>
                   <div className="fl-badge" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none">
@@ -763,7 +1405,9 @@ function LoginForm() {
                         <input
                           className="fl-mono"
                           value={twofaCode}
-                          onChange={(event) => setTwofaCode(event.target.value)}
+                          onChange={(event) =>
+                            setTwofaCode(event.target.value)
+                          }
                           autoCapitalize="off"
                           autoComplete="off"
                           spellCheck={false}
@@ -790,7 +1434,11 @@ function LoginForm() {
                     )}
 
                     {useBackup && (
-                      <button className="fl-primary" type="submit" disabled={busy}>
+                      <button
+                        className="fl-primary"
+                        type="submit"
+                        disabled={busy}
+                      >
                         {busy ? (
                           <>
                             <Spinner /> Checking…
@@ -806,26 +1454,41 @@ function LoginForm() {
                     <button
                       type="button"
                       onClick={() => {
-                        setUseBackup((v) => !v);
+                        setUseBackup((value) => !value);
                         setTwofaCode("");
                         setError("");
                       }}
                     >
-                      {useBackup ? "Use authenticator app instead" : "Use a backup code instead"}
+                      {useBackup
+                        ? "Use authenticator app instead"
+                        : "Use a backup code instead"}
                     </button>
                   </p>
 
                   <p className="fl-foot fl-foot-tight">
-                    <button type="button" onClick={resetToForm}>
+                    <button
+                      type="button"
+                      onClick={resetToForm}
+                    >
                       ← Back to sign in
                     </button>
                   </p>
                 </>
               ) : step === "verify" ? (
+                /* -----------------------------------------
+                   EMAIL VERIFICATION
+                   ----------------------------------------- */
+
                 <>
                   <div className="fl-badge" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="5" width="18" height="14" rx="3" />
+                      <rect
+                        x="3"
+                        y="5"
+                        width="18"
+                        height="14"
+                        rx="3"
+                      />
                       <path d="M4 7.5l8 5.5 8-5.5" />
                     </svg>
                   </div>
@@ -833,8 +1496,9 @@ function LoginForm() {
                   <h1>Verify your email</h1>
 
                   <p className="fl-sub">
-                    Enter the 6-digit code we emailed to <b>{form.email.trim()}</b>.
-                    It expires in 10 minutes.
+                    Enter the 6-digit code we emailed to{" "}
+                    <b>{form.email.trim()}</b>. It expires
+                    in 10 minutes.
                   </p>
 
                   <form
@@ -853,7 +1517,11 @@ function LoginForm() {
                       invalid={Boolean(error)}
                     />
 
-                    {notice && <div className="fl-notice">{notice}</div>}
+                    {notice && (
+                      <div className="fl-notice" role="status">
+                        {notice}
+                      </div>
+                    )}
 
                     {error && (
                       <div className="fl-error" role="alert">
@@ -861,7 +1529,11 @@ function LoginForm() {
                       </div>
                     )}
 
-                    <button className="fl-primary" type="submit" disabled={busy}>
+                    <button
+                      className="fl-primary"
+                      type="submit"
+                      disabled={busy}
+                    >
                       {busy ? (
                         <>
                           <Spinner /> Verifying…
@@ -879,19 +1551,32 @@ function LoginForm() {
                       onClick={() => sendCode(form.email)}
                       disabled={cooldown > 0}
                     >
-                      {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                      {cooldown > 0
+                        ? `Resend in ${cooldown}s`
+                        : "Resend code"}
                     </button>
                   </p>
 
                   <p className="fl-foot fl-foot-tight">
-                    <button type="button" onClick={resetToForm}>
+                    <button
+                      type="button"
+                      onClick={resetToForm}
+                    >
                       ← Back to sign in
                     </button>
                   </p>
                 </>
               ) : (
+                /* -----------------------------------------
+                   SIGN IN / SIGN UP
+                   ----------------------------------------- */
+
                 <>
-                  <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+                  <h1>
+                    {mode === "login"
+                      ? "Welcome back"
+                      : "Create your account"}
+                  </h1>
 
                   <p className="fl-sub">
                     {mode === "login"
@@ -899,12 +1584,18 @@ function LoginForm() {
                       : "One account for Fades Browser, Chat and Mail."}
                   </p>
 
-                  <div className="fl-tabs" role="tablist" data-mode={mode}>
+                  <div
+                    className="fl-tabs"
+                    role="tablist"
+                    data-mode={mode}
+                  >
                     <button
                       type="button"
                       role="tab"
                       aria-selected={mode === "login"}
-                      className={mode === "login" ? "active" : ""}
+                      className={
+                        mode === "login" ? "active" : ""
+                      }
                       onClick={() => switchMode("login")}
                     >
                       Sign in
@@ -914,7 +1605,9 @@ function LoginForm() {
                       type="button"
                       role="tab"
                       aria-selected={mode === "signup"}
-                      className={mode === "signup" ? "active" : ""}
+                      className={
+                        mode === "signup" ? "active" : ""
+                      }
                       onClick={() => switchMode("signup")}
                     >
                       Create account
@@ -957,30 +1650,61 @@ function LoginForm() {
 
                       <div className="fl-password">
                         <input
-                          type={showPassword ? "text" : "password"}
+                          type={
+                            showPassword ? "text" : "password"
+                          }
                           value={form.password}
                           onChange={set("password")}
-                          onKeyUp={(event) => setCapsOn(event.getModifierState("CapsLock"))}
-                          onKeyDown={(event) => setCapsOn(event.getModifierState("CapsLock"))}
+                          onKeyUp={(event) =>
+                            setCapsOn(
+                              event.getModifierState("CapsLock")
+                            )
+                          }
+                          onKeyDown={(event) =>
+                            setCapsOn(
+                              event.getModifierState("CapsLock")
+                            )
+                          }
                           onBlur={() => setCapsOn(false)}
-                          autoComplete={mode === "login" ? "current-password" : "new-password"}
-                          placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
+                          autoComplete={
+                            mode === "login"
+                              ? "current-password"
+                              : "new-password"
+                          }
+                          placeholder={
+                            mode === "login"
+                              ? "Your password"
+                              : "At least 8 characters"
+                          }
                         />
 
                         <button
                           type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          onClick={() =>
+                            setShowPassword((value) => !value)
+                          }
+                          aria-label={
+                            showPassword
+                              ? "Hide password"
+                              : "Show password"
+                          }
                         >
                           {showPassword ? "Hide" : "Show"}
                         </button>
                       </div>
 
-                      {capsOn && <em className="fl-hint">Caps Lock is on</em>}
+                      {capsOn && (
+                        <em className="fl-hint">
+                          Caps Lock is on
+                        </em>
+                      )}
                     </label>
 
                     {mode === "signup" && form.password && (
-                      <div className="fl-strength" data-score={strength.score}>
+                      <div
+                        className="fl-strength"
+                        data-score={strength.score}
+                      >
                         <div className="fl-strength-bars">
                           <i />
                           <i />
@@ -998,7 +1722,17 @@ function LoginForm() {
                       </div>
                     )}
 
-                    <button className="fl-primary" type="submit" disabled={busy}>
+                    {notice && (
+                      <div className="fl-notice" role="status">
+                        {notice}
+                      </div>
+                    )}
+
+                    <button
+                      className="fl-primary"
+                      type="submit"
+                      disabled={busy}
+                    >
                       {busy ? (
                         <>
                           <Spinner /> Please wait…
@@ -1011,14 +1745,34 @@ function LoginForm() {
                     </button>
                   </form>
 
+                  {/* FORGOT PASSWORD BUTTON */}
+                  {mode === "login" && (
+                    <p className="fl-foot fl-foot-tight">
+                      <button
+                        type="button"
+                        onClick={openForgotPassword}
+                      >
+                        Forgot your password?
+                      </button>
+                    </p>
+                  )}
+
                   <p className="fl-foot">
-                    {mode === "login" ? "New to Fades? " : "Already have an account? "}
+                    {mode === "login"
+                      ? "New to Fades? "
+                      : "Already have an account? "}
 
                     <button
                       type="button"
-                      onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+                      onClick={() =>
+                        switchMode(
+                          mode === "login" ? "signup" : "login"
+                        )
+                      }
                     >
-                      {mode === "login" ? "Create an account" : "Sign in"}
+                      {mode === "login"
+                        ? "Create an account"
+                        : "Sign in"}
                     </button>
                   </p>
                 </>
