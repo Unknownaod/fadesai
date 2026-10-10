@@ -542,14 +542,6 @@ export function Sidebar({
             </div>
           )}
 
-          {!search && otherChats.length > 0 && (
-            <section className="chat-group">
-              <div className="chat-group-title">Other chats</div>
-              {otherChats.map(renderChat)}
-            </section>
-          )}
-        </div>
-
         {/* Account menu */}
         <div className="sidebar-bottom" ref={bottomRef}>
           {profileOpen && (
