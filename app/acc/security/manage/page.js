@@ -1563,7 +1563,7 @@ export default function AccountPage() {
           <footer className="fa-content-footer">
             <span>FADES ACCOUNT CENTER</span>
             <span>
-              Need help? <a href="https://fades.lol">Visit Fades</a>
+              Need help? <a href="https://help.fades.lol">Visit Fades</a>
             </span>
           </footer>
         </section>
