@@ -364,27 +364,59 @@
   .fa-shell *, .fa-shell *::before, .fa-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* ---------- Fades logo ---------- */
-
-.fa-logo {
+/* ---------- Fades logo image fixes ---------- */
+.fa-shell img.fa-logo {
   display: block;
   width: 44px;
   height: 44px;
   margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   object-fit: contain;
 }
 
-.fa-brand-logo {
+.fa-shell img.fa-brand-logo {
   display: block;
-  flex-shrink: 0;
+  flex: 0 0 30px;
   width: 30px;
   height: 30px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   object-fit: contain;
 }
 
-.fa-welcome-mark img {
+.fa-shell .fa-welcome-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  opacity: 0.9;
+}
+
+.fa-shell .fa-welcome-mark img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.fa-shell .fa-loading img.fa-logo {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+}
+
+.fa-shell .fa-auth-card img.fa-logo {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 20px;
+}
+
+@media (max-width: 640px) {
+  .fa-shell .fa-welcome-mark {
+    display: none;
+  }
 }
